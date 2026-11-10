@@ -381,14 +381,18 @@ class ProtocoloSprayWait(ProtocoloDTN):
             if not alvos:
                 continue
             for bd in list(no.buffer.values()):
-                if bd.expirado(t_s) or bd.copias <= 1:
+                if bd.expirado(t_s):
                     continue
-                # gasta uma copia por vizinho, um por vez
+                # bundles com uma unica copia entram na fase de espera e nao
+                # sao mais pulverizados; ainda podem ser entregues a gateways
+                if bd.copias <= 1:
+                    continue
+                restantes = bd.copias
                 for j in alvos:
-                    if bd.copias <= 1:
+                    if restantes <= 1:
                         break
                     decisoes.setdefault((i, j), []).append(bd)
-                    bd.copias -= 1
+                    restantes -= 1
         return decisoes
 
     def ajustar_no(self, no) -> None:
@@ -424,14 +428,17 @@ class ProtocoloFLoRA(ProtocoloDTN):
                 if bd.expirado(t_s):
                     continue
                 idade = math.exp(-bd.idade_h(t_s) / cfg.utilidade_sigma_t_h)
-                u_origem = cfg.utilidade_alpha * math.exp(
+                base_origem = cfg.utilidade_alpha * math.exp(
                     -ctx.distancia_ate_roteiro_km(no) / cfg.utilidade_sigma_d_km
-                ) * idade * bd.prioridade
+                ) * idade
+                u_origem = base_origem * bd.prioridade
                 melhor_j = -1
                 melhor_ganho = cfg.limiar_utilidade
                 for k, j in enumerate(alvos):
-                    ganho = cfg.utilidade_alpha * math.exp(-u_origem_no[k] / cfg.utilidade_sigma_d_km) * idade
-                    if ganho > melhor_ganho and ganho * bd.prioridade > cfg.fator_retencao * u_origem:
+                    ganho = (cfg.utilidade_alpha
+                             * math.exp(-u_origem_no[k] / cfg.utilidade_sigma_d_km)
+                             * idade * bd.prioridade)
+                    if ganho > melhor_ganho and ganho > cfg.fator_retencao * base_origem:
                         melhor_ganho = ganho
                         melhor_j = j
                 if melhor_j >= 0:
@@ -854,6 +861,8 @@ class Embarcacao:
         self.distancia_percorrida_km = 0.0
         self.viagens_completas = 0
         self.bundles_criados = 0
+        self.bundles_expulsos = 0
+        self.bundles_descartados = 0
         self.transmitidos = 0
         self.recebidos = 0
         self.saltos_totais = 0
@@ -964,8 +973,10 @@ class Embarcacao:
         if bd.bid in self.buffer:
             return False
         if len(self.buffer) >= limite:
+            antes = len(self.buffer)
             self._expulsar(limite, t_s, bd)
             if len(self.buffer) >= limite:
+                self.bundles_descartados += 1
                 return False
         self.buffer[bd.bid] = bd
         return True
@@ -983,6 +994,7 @@ class Embarcacao:
         pior_bid = min(self.buffer, key=lambda k: (self.buffer[k].prioridade, self.buffer[k].idade_h(t_s), k))
         if novo is None or novo.prioridade > self.buffer[pior_bid].prioridade:
             del self.buffer[pior_bid]
+            self.bundles_expulsos += 1
 
     def expirar(self, t_s: float) -> int:
         mortos = [bid for bid, bd in self.buffer.items() if bd.expirado(t_s)]
@@ -1042,6 +1054,10 @@ class Metricas:
         self.alcance_referencia_km: float | None = None
         self.t_s = 0.0
         self.bundles_criados = 0
+        self.bundles_gerados = 0
+        self.bundles_admitidos = 0
+        self.bundles_descartados = 0
+        self.bundles_expulsos = 0
         self.bundles_por_categoria: dict[str, int] = {c: 0 for c in CATEGORIAS}
         self.entregues_total = 0
         self.entregues_no_horizonte = 0
@@ -1058,6 +1074,7 @@ class Metricas:
         self.retransmissoes_suprimidas = 0
         self.cobertura_por_bid: dict[str, set[int]] = {}
         self.tci_por_bid: dict[str, float | None] = {}
+        self.tci_criacao_por_bid: dict[str, float] = {}
         #: Numero minimo de nos com copia para dar um bundle por convergente.
         #: Definido pelo motor apos conhecer o tamanho da frota.
         self.limiar_cobertura = 1
@@ -1069,10 +1086,12 @@ class Metricas:
 
     def registrar_criacao(self, bd: Bundle, no_id: int) -> None:
         self.bundles_criados += 1
+        self.bundles_admitidos += 1
         self.bundles_por_categoria[bd.categoria] += 1
         if bd.categoria == CAT_SEGURANCA:
             self.cobertura_por_bid[bd.bid] = {no_id}
             self.tci_por_bid[bd.bid] = None
+            self.tci_criacao_por_bid[bd.bid] = bd.t_criacao_s
 
     def registrar_cobertura(self, bid: str, no_id: int, t_s: float) -> None:
         """
@@ -1089,8 +1108,16 @@ class Metricas:
         if bid in conjunto:
             return
         conjunto.add(no_id)
+    def registrar_cobertura(self, bid: str, no_id: int, t_s: float) -> None:
+        conjunto = self.cobertura_por_bid.get(bid)
+        if conjunto is None:
+            return
+        if bid in conjunto:
+            return
+        conjunto.add(no_id)
         if self.tci_por_bid.get(bid) is None and len(conjunto) >= self.limiar_cobertura:
-            self.tci_por_bid[bid] = t_s / 3600.0
+            criacao = self.tci_criacao_por_bid.get(bid, t_s)
+            self.tci_por_bid[bid] = max(0.0, (t_s - criacao) / 3600.0)
 
     def registrar_entrega(self, bd: Bundle, t_s: float) -> None:
         self.entregues_total += 1
@@ -1108,11 +1135,11 @@ class Metricas:
 
     @property
     def ted(self) -> float:
-        return 100.0 * self.entregues_total / self.bundles_criados if self.bundles_criados else 0.0
+        return 100.0 * self.entregues_total / self.bundles_gerados if self.bundles_gerados else 0.0
 
     @property
     def ted_no_horizonte(self) -> float:
-        return 100.0 * self.entregues_no_horizonte / self.bundles_criados if self.bundles_criados else 0.0
+        return 100.0 * self.entregues_no_horizonte / self.bundles_gerados if self.bundles_gerados else 0.0
 
     @property
     def lpa_min(self) -> float:
@@ -1160,6 +1187,24 @@ class Metricas:
             return float("inf")
         return sum(valores) / len(valores)
 
+    @property
+    def tci_mediana_h(self) -> float:
+        valores = sorted(v for v in self.tci_por_bid.values() if v is not None)
+        if not valores:
+            return float("nan")
+        n = len(valores)
+        if n % 2:
+            return valores[n // 2]
+        return (valores[n // 2 - 1] + valores[n // 2]) / 2.0
+
+    @property
+    def tci_desvio_h(self) -> float:
+        valores = [v for v in self.tci_por_bid.values() if v is not None]
+        if len(valores) < 2:
+            return 0.0
+        import statistics
+        return statistics.stdev(valores)
+
     def dict(self) -> dict:
         return {
             "cenario": self.cfg.cenario,
@@ -1175,6 +1220,10 @@ class Metricas:
             "cobertura_instantanea_media": round(self.cobertura_instantanea_media, 1),
             "alcance_referencia_km": self.alcance_referencia_km,
             "bundles_criados": self.bundles_criados,
+        "bundles_gerados": self.bundles_gerados,
+        "bundles_admitidos": self.bundles_admitidos,
+        "bundles_descartados": self.bundles_descartados,
+        "bundles_expulsos": self.bundles_expulsos,
             "bundles_seguranca": self.bundles_por_categoria[CAT_SEGURANCA],
             "bundles_rotina": self.bundles_por_categoria[CAT_ROTINA],
             "entregues_total": self.entregues_total,
@@ -1185,7 +1234,10 @@ class Metricas:
             "lpa_mediana_minutos": round(self.lpa_mediana_min, 2) if self.latencias_s else None,
             "car_percentual": round(self.car, 2) if self.nos_em_zona_critica else None,
             "tci_horas": round(self.tci_h, 3) if math.isfinite(self.tci_h) else None,
+            "tci_mediana_horas": round(self.tci_mediana_h, 3) if math.isfinite(self.tci_mediana_h) else None,
+            "tci_desvio_horas": round(self.tci_desvio_h, 3),
             "tci_bundles_convergidos": sum(1 for v in self.tci_por_bid.values() if v is not None),
+            "tci_bundles_nao_convergidos": sum(1 for v in self.tci_por_bid.values() if v is None),
             "overhead_copias": round(self.overhead, 3) if self.entregues_total else None,
             "saltos_medios": round(self.saltos_medios, 3) if self.entregues_total else None,
             "transmissoes": self.transmissoes,
@@ -1320,11 +1372,13 @@ class MotorDTN:
         n_seg, n_rot = CARGA_INICIAL.get(no.tipo, (0, 0))
         for _ in range(n_seg):
             bd = self._novo_bundle(no, CAT_SEGURANCA, {"alerta": False})
+            self.metricas.bundles_gerados += 1
             if no.inserir(bd, self.t_s, self.cfg.limite_buffer):
                 no.bundles_criados += 1
                 self.metricas.registrar_criacao(bd, no.id)
         for _ in range(n_rot):
             bd = self._novo_bundle(no, CAT_ROTINA)
+            self.metricas.bundles_gerados += 1
             if no.inserir(bd, self.t_s, self.cfg.limite_buffer):
                 no.bundles_criados += 1
                 self.metricas.registrar_criacao(bd, no.id)
@@ -1381,11 +1435,13 @@ class MotorDTN:
             n_seg, n_rot = CARGA_INICIAL.get(no.tipo, (0, 0))
             for _ in range(n_seg):
                 bd = self._novo_bundle(no, CAT_SEGURANCA, {"alerta": False})
+                self.metricas.bundles_gerados += 1
                 if no.inserir(bd, 0.0, self.cfg.limite_buffer):
                     no.bundles_criados += 1
                     self.metricas.registrar_criacao(bd, no.id)
             for _ in range(n_rot):
                 bd = self._novo_bundle(no, CAT_ROTINA)
+                self.metricas.bundles_gerados += 1
                 if no.inserir(bd, 0.0, self.cfg.limite_buffer):
                     no.bundles_criados += 1
                     self.metricas.registrar_criacao(bd, no.id)
@@ -1497,6 +1553,7 @@ class MotorDTN:
             if categoria is None:
                 continue
             bd = self._novo_bundle(no, categoria, extra)
+            self.metricas.bundles_gerados += 1
             if no.inserir(bd, self.t_s, cfg.limite_buffer):
                 no.bundles_criados += 1
                 self.metricas.registrar_criacao(bd, no.id)
@@ -1538,8 +1595,9 @@ class MotorDTN:
                     # upload que so contaria como redundante
                     candidatos.sort(key=lambda b: b.bid in self._entregues)
                     quota = min(len(candidatos), int(sn._cota))
-                    sn._cota -= quota
                     candidatos = candidatos[:quota]
+                    # a cota so e descontada quando a transmissao efetivamente
+                    # ocorrer, em _uplicar_ao_gateway
                 for bd in candidatos:
                     self._uplicar_ao_gateway(no, bd, sn)
             com_cobertura += 1 if alcancado else 0
@@ -1556,16 +1614,20 @@ class MotorDTN:
         # cada embarcacao envia um bundle a cada superno uma unica vez
         if bd.bid in no.bids_enviados:
             return
-        no.bids_enviados.add(bd.bid)
-        no.transmitiu_ao_gateway += 1
-        sn.pacotes_drenados += 1
-        sn.drenados.setdefault(bd.bid, self.t_s)
-
         airtime_s = no.lora.airtime_por_segundo(TAMANHO_PACOTE_LORA_B)
         if not no.pode_transmitir(airtime_s):
             no.transmissoes_adiaadas += 1
             self.metricas.adiaadas += 1
+            # transmissao bloqueada: bundle permanece pendente para reenvio
             return
+        # transmissao efetiva: so agora marca como enviado
+        no.bids_enviados.add(bd.bid)
+        no.transmitiu_ao_gateway += 1
+        sn.pacotes_drenados += 1
+        sn.drenados.setdefault(bd.bid, self.t_s)
+        if sn.movel:
+            sn._cota = max(0.0, sn._cota - 1.0)
+
         no.registrar_tx(self.t_s, airtime_s)
         self.metricas.airtime_s += airtime_s
         self.metricas.energia_j += no.lora.energia_tx_joule(airtime_s * 1000.0)
@@ -1677,6 +1739,10 @@ class MotorDTN:
         self.metricas.registrar_transmissao()
 
         novo = bd.copia(bd.saltos + 1)
+        decrementou_copia = False
+        if self.protocolo.nome == "spray" and bd.copias > 1:
+            bd.copias -= 1
+            decrementou_copia = True
         if destino.inserir(novo, self.t_s, self.cfg.limite_buffer):
             destino.marcar_recebido(novo.bid)
             destino.recebidos += 1
@@ -1684,6 +1750,8 @@ class MotorDTN:
             origem.transmitidos += 1
             self.metricas.registrar_cobertura(bd.bid, destino.id, self.t_s)
         else:
+            if decrementou_copia:
+                bd.copias += 1
             # store cheio e sem o que expulsar: o bundle foi conhecido mas
             # descartado. Ja conta como "conhecido" para nao repetir a tentativa.
             destino.marcar_recebido(novo.bid)
@@ -1708,7 +1776,7 @@ class MotorDTN:
                 break
             if m.tci_por_bid.get(bid) is not None or len(m.cobertura_por_bid[bid]) <= 1:
                 del m.cobertura_por_bid[bid]
-                m.tci_por_bid.pop(bid, None)
+                # preserva o TCI ja calculado
 
     def _amostrar_series(self) -> None:
         t_h = self.t_s / 3600.0
@@ -1740,6 +1808,8 @@ class MotorDTN:
     def resumo(self) -> dict:
         m = self.metricas
         m.t_s = self.t_s
+        m.bundles_descartados = sum(no.bundles_descartados for no in self.frota)
+        m.bundles_expulsos = sum(no.bundles_expulsos for no in self.frota)
         dados = m.dict()
         dados.update({
             "cenario_nome": self.cenario.nome,

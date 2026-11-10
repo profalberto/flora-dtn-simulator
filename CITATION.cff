@@ -14,7 +14,7 @@ authors:
     given-names: "António"
     affiliation: "Instituto de Ciências Exatas e Tecnologia (ICET), Universidade Federal do Amazonas (UFAM)"
     email: "profalbertosena@gmail.com"
-version: "1.1.0"
+version: "1.1.1"
 date-released: "2026-11-10"
 license: MIT
 keywords:

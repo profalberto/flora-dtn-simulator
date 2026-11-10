@@ -55,9 +55,13 @@ class ParametrosLora:
         if self.sf not in SPREADING_FACTORS:
             raise ValueError(f"spreading factor fora da tabela: {self.sf}")
         if not self.taxa_bits_s:
-            # taxa nominal do CSS: 4*BW / (2^SF * CR)
-            cr = int(self.codificacao.split("/")[1]) / 4.0
-            object.__setattr__(self, "taxa_bits_s", int(4 * self.banda_hz / (2 ** self.sf * cr)))
+            # taxa nominal do CSS (Semtech): Rb = SF * BW / 2^SF * 4/(4+CR),
+            # com CR o numero extra de bits de paridade (1 para 4/5).
+            cr_extra = int(self.codificacao.split("/")[1]) - 4
+            object.__setattr__(
+                self, "taxa_bits_s",
+                int(self.sf * self.banda_hz / (2 ** self.sf) * 4.0 / (4 + cr_extra)),
+            )
 
     @property
     def alcance_referencia_km(self) -> float:
