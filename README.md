@@ -234,6 +234,17 @@ python dtn_simulador.py analisar -e resultados -o resultados/analise
 python dtn_simulador.py analisar -e resultados -c C3 -H 168 -o resultados/analise
 ```
 
+Para as tabelas do artigo (5, 6 e 7), use:
+
+```bash
+python dtn_simulador.py artigo --sementes 30 --horizonte 168
+```
+
+O comando roda o comparativo para C1, C2 e C3, agrega e grava em
+`resultados/artigo/` os arquivos `tabela5_gateways.csv/.tex`,
+`tabela6_protocolos.csv/.tex` e `tabela7_estatistica.csv/.tex`. Use
+`--sementes 3 --horizonte 2` para uma validacao rapida.
+
 Se a pasta tiver mais de um cenario ou horizonte, o modo avisa e o relatorio
 mistura regimes diferentes. Use `--cenario` e `--horizonte` para fixar o
 regime que se quer comparar (por exemplo, C3 com 168 h), deixando apenas a
@@ -261,6 +272,83 @@ Friedman e preferido quando os blocos estao completos porque remove a
 variabilidade entre sementes, que e justamente o que a comparacao entre
 protocolos quer controlar.
 
+Saída típica (comando `python dtn_simulador.py analisar -e exemplos`):
+
+```text
+FLoRA-DTN 1.1.0
+Simulador DTN-LoRa da calha do Amazonas (UFAM)
+commit 4c84ed7 | Python 3.13.7 | distancia_corredor_km=208.9
+Analise de 5 execucoes | protocolos: epidemico, flora, sc, slp, spray | IC 95% | familia de 0 teste(s) com Holm
+
+ted_percentual
+protocolo        n      media     desvio                 IC95%   Shapiro p
+epidemico        1      79.55       0.00                   n/a         n/a
+flora            1      72.73       0.00                   n/a         n/a
+sc               1      59.09       0.00                   n/a         n/a
+slp              1      59.09       0.00                   n/a         n/a
+spray            1      61.36       0.00                   n/a         n/a
+  teste: dados insuficientes (n<2 por protocolo ou <2 protocolos)
+
+ted_no_horizonte_percentual
+protocolo        n      media     desvio                 IC95%   Shapiro p
+epidemico        1      79.55       0.00                   n/a         n/a
+flora            1      72.73       0.00                   n/a         n/a
+sc               1      59.09       0.00                   n/a         n/a
+slp              1      59.09       0.00                   n/a         n/a
+spray            1      61.36       0.00                   n/a         n/a
+  teste: dados insuficientes (n<2 por protocolo ou <2 protocolos)
+
+lpa_minutos
+protocolo        n      media     desvio                 IC95%   Shapiro p
+epidemico        1       2.27       0.00                   n/a         n/a
+flora            1       2.26       0.00                   n/a         n/a
+sc               1       2.26       0.00                   n/a         n/a
+slp              1       2.26       0.00                   n/a         n/a
+spray            1       3.77       0.00                   n/a         n/a
+  teste: dados insuficientes (n<2 por protocolo ou <2 protocolos)
+
+car_percentual
+protocolo        n      media     desvio                 IC95%   Shapiro p
+epidemico        1     100.00       0.00                   n/a         n/a
+flora            1     100.00       0.00                   n/a         n/a
+sc               1     100.00       0.00                   n/a         n/a
+slp              1     100.00       0.00                   n/a         n/a
+spray            1     100.00       0.00                   n/a         n/a
+  teste: dados insuficientes (n<2 por protocolo ou <2 protocolos)
+
+overhead_copias
+protocolo        n      media     desvio                 IC95%   Shapiro p
+epidemico        1       7.20       0.00                   n/a         n/a
+flora            1       1.81       0.00                   n/a         n/a
+sc               1       1.00       0.00                   n/a         n/a
+slp              1       1.00       0.00                   n/a         n/a
+spray            1       1.41       0.00                   n/a         n/a
+  teste: dados insuficientes (n<2 por protocolo ou <2 protocolos)
+
+transmissoes
+protocolo        n      media     desvio                 IC95%   Shapiro p
+epidemico        1     252.00       0.00                   n/a         n/a
+flora            1      58.00       0.00                   n/a         n/a
+sc               1      26.00       0.00                   n/a         n/a
+slp              1      26.00       0.00                   n/a         n/a
+spray            1      38.00       0.00                   n/a         n/a
+  teste: dados insuficientes (n<2 por protocolo ou <2 protocolos)
+
+energia_total_j
+protocolo        n      media     desvio                 IC95%   Shapiro p
+epidemico        1       4.58       0.00                   n/a         n/a
+flora            1       1.01       0.00                   n/a         n/a
+sc               1       0.39       0.00                   n/a         n/a
+slp              1       0.39       0.00                   n/a         n/a
+spray            1       0.54       0.00                   n/a         n/a
+  teste: dados insuficientes (n<2 por protocolo ou <2 protocolos)
+  gravado: resultados/analise/analise_estatistica.csv
+  gravado: resultados/analise/analise_estatistica.json
+
+  aviso: sem dados suficientes para teste de hipotese (precisa de 2+ protocolos e 2+ execucoes por protocolo).
+```
+
+Arquivos gerados: `resultados/analise/analise_estatistica.csv` e `.json`.
 ### Interface grafica
 
 Barra de menus com **Simulacao** (iniciar/pausar, passo unico, velocidade),
@@ -331,6 +419,11 @@ com fidelidade util. Ele so aparece com tolerancia de juncao de 6 km entre
 trechos, e vem com nove vaos de mais de 5 km, o maior de 13,6 km. Um vao e uma
 reta que o dado nao mediu, atravessando a mata, que e o oposto do que a
 geometria real veio resolver. Ver `baixar_osm.selecionar_eixo`.
+
+A funcao `listar_gateways()` em `flora_dtn.py` e a fonte unica de verdade sobre
+os gateways do modelo: devolve os fixos (Manaus e Itacoatiara), os moveis (um
+por embarcacao PRINCIPAL) e os cinco municipios excluidos, com coordenadas e
+motivo. O motor a chama em `__init__` e o `exportar_simulacao` a grava no JSON.
 
 **Municipios que ficam de fora, e por que.** A tese cita telecomunicacao em
 Urucurituba, Silves, Itapiranga, Careiro da Varzea e Autazes, mas o criterio para
@@ -621,6 +714,10 @@ modelo nao inclui, ou um trecho de aguas diferentes. Nao e um numero que se
 corrige por ajuste fino do mapa: e uma definicao de corredor que precisa ser
 feita.
 
+> **Nota.** O corredor modelado mede 208,9 km. O artigo cita 270 km; a
+> diferença corresponde ao trecho até Urucurituba e a jusante, que o modelo
+> não inclui.
+
 ## Metricas
 
 `TED` (taxa de entrega), `LPA` (latencia percentil de atraso), `CAR` (cobertura
@@ -650,6 +747,20 @@ alcance) e `gateways_moveis` (quantos terminais a bordo). Os CSV ficam em
 A semente fixada torna cada execucao reproduzivel: mesma semente, mesmo
 cenario, mesmo protocolo e mesmo horizonte produzem resultados identicos. O
 modo paralelo foi verificado contra o sequencial e grava CSV byte-identicos.
+
+## Validacao rapida
+
+Para testar o simulador sem rodar 168 h, use `--dry-run`:
+
+```bash
+python dtn_simulador.py rodar --dry-run
+python dtn_simulador.py comparar --dry-run
+python dtn_simulador.py analisar --dry-run
+```
+
+O dry-run usa horizonte de 0,1 h, semente 20260826, nao grava CSV nem JSON
+e nao cria arquivo de log; apenas imprime o resumo na tela. Funciona em todos
+os subcomandos, inclusive `gui`, `carta` e `artigo`.
 
 ## Testes
 

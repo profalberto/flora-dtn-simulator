@@ -60,6 +60,10 @@ CENARIOS = ("C1", "C2", "C3")
 def construir_cfg(args) -> "ConfiguracaoDTN":
     from flora_dtn import ConfiguracaoDTN
 
+    if getattr(args, "dry_run", False):
+        args.horizonte = 0.1
+        args.semente = 20260826
+
     campos = {
         "cenario": args.cenario,
         "protocolo": args.protocolo,
@@ -109,6 +113,8 @@ def argumentos_comuns(parser: argparse.ArgumentParser) -> None:
                         help="copias por origem no spray-and-wait")
     parser.add_argument("--sem-sombreamento", action="store_true",
                         help="desliga a perda por sombreamento do enlace")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="validacao rapida: 0.1 h, semente 20260826, sem gravar arquivos")
 
 
 def argumentos_log(parser: argparse.ArgumentParser) -> None:
@@ -174,6 +180,8 @@ def construir_parser() -> argparse.ArgumentParser:
     c.add_argument("--tinta-profundidade", action="store_true",
                    help="pinta a profundidade por cima do fundo, como a rampa "
                         "de risco de encalhe sobre o satelite")
+    c.add_argument("--dry-run", action="store_true",
+                   help="validacao rapida: 0.1 h, semente 20260826, sem gravar arquivos")
     argumentos_log(c)
 
     m = sub.add_parser("comparar", help="compara os cinco protocolos")
@@ -203,7 +211,20 @@ def construir_parser() -> argparse.ArgumentParser:
                    help="considera apenas execucoes com este horizonte (horas)")
     a.add_argument("--confianca", type=float, default=0.95,
                    help="nivel do intervalo de confianca (padrao: 0.95)")
+    a.add_argument("--dry-run", action="store_true",
+                   help="validacao rapida: nao grava arquivos de saida")
     argumentos_log(a)
+
+    art = sub.add_parser("artigo", help="gera as tabelas 5, 6 e 7 do artigo")
+    argumentos_comuns(art)
+    argumentos_log(art)
+    art.add_argument("--sementes", type=int, default=30,
+                     help="numero de sementes (padrao: 30)")
+    art.add_argument("--saida", "-o",
+                     default=os.path.join(RAIZ, "resultados", "artigo"),
+                     help="pasta de saida (padrao: resultados/artigo)")
+    art.add_argument("--trabalhadores", type=int, default=None, metavar="N",
+                     help="numero de processos (padrao: ate 8)")
     return p
 
 
@@ -246,6 +267,8 @@ def modo_rodar(args) -> int:
     from flora_dtn import MotorDTN
 
     log = flora_log.obter_logger("rodar")
+    if getattr(args, "dry_run", False):
+        args.sem_log = True
     cfg = construir_cfg(args)
     cfg.validar()
     motor = MotorDTN(cfg)
@@ -279,15 +302,16 @@ def modo_rodar(args) -> int:
 
     base = os.path.join(args.saida, f"{cfg.cenario}_{motor.protocolo.nome}_"
                                    f"{cfg.horizonte_h:g}h_s{cfg.semente}")
-    os.makedirs(args.saida, exist_ok=True)
-    for caminho in motor.exportar_tudo(base):
-        print(f"  gravado: {caminho}")
-        log.info("gravado: %s", caminho)
-    if not getattr(args, "sem_completo", False):
-        completo = f"{base}_simulacao.json"
-        motor.exportar_simulacao(completo)
-        print(f"  gravado: {completo}")
-        log.info("gravado: %s", completo)
+    if not getattr(args, "dry_run", False):
+        os.makedirs(args.saida, exist_ok=True)
+        for caminho in motor.exportar_tudo(base):
+            print(f"  gravado: {caminho}")
+            log.info("gravado: %s", caminho)
+        if not getattr(args, "sem_completo", False):
+            completo = f"{base}_simulacao.json"
+            motor.exportar_simulacao(completo)
+            print(f"  gravado: {completo}")
+            log.info("gravado: %s", completo)
     log.info("rodar concluido em %.1fs: ted=%.2f%% lpa=%s min transmissoes=%s",
              duracao, r.get("ted_percentual") or 0.0, r.get("lpa_minutos"),
              r.get("transmissoes"))
@@ -317,6 +341,22 @@ def _executar_um(cfg, pasta_saida: str | None):
         os.makedirs(pasta_saida, exist_ok=True)
         arquivos = motor.exportar_tudo(base)
     return motor.resumo(), duracao, arquivos
+
+
+def _executar_um_artigo(cfg, pasta_saida: str, config_label: str):
+    """Executa uma configuracao do artigo e grava CSV + JSON completos."""
+    from flora_dtn import MotorDTN
+
+    motor = MotorDTN(cfg).executar()
+    base = os.path.join(
+        pasta_saida,
+        f"{cfg.cenario}_{cfg.protocolo}_{config_label}_"
+        f"{cfg.horizonte_h:g}h_s{cfg.semente}",
+    )
+    os.makedirs(pasta_saida, exist_ok=True)
+    motor.exportar_metricas(f"{base}_metricas.csv")
+    motor.exportar_simulacao(f"{base}_simulacao.json")
+    return (cfg.cenario, cfg.protocolo, cfg.semente, config_label, motor.resumo())
 
 
 def _tarefa_protocolo(tarefa):
@@ -431,7 +471,8 @@ def _horizonte_igual(texto: str, alvo: float) -> bool:
 
 def modo_analisar(args) -> int:
     from flora_analise import (METRICAS_PADRAO, analisar, carregar_registros,
-                               expandir_caminhos, salvar, tabela_texto)
+                               expandir_caminhos, salvar, tabela_texto,
+                               validar_consistencia)
 
     log = flora_log.obter_logger("analisar")
     metricas = None
@@ -441,6 +482,17 @@ def modo_analisar(args) -> int:
         metricas = list(METRICAS_PADRAO)
 
     caminhos = expandir_caminhos(args.entrada)
+    for caminho in caminhos:
+        if caminho.lower().endswith("_metricas.csv"):
+            json_cand = caminho[:-len("_metricas.csv")] + "_simulacao.json"
+            if os.path.isfile(json_cand):
+                ok, diffs = validar_consistencia(caminho, json_cand)
+                if not ok:
+                    nomes = ", ".join(d[0] for d in diffs)
+                    print(f"  aviso: inconsistencia entre "
+                          f"{os.path.basename(caminho)} e "
+                          f"{os.path.basename(json_cand)}: {nomes}")
+                    log.warning("inconsistencia %s vs %s: %s", caminho, json_cand, diffs)
     registros = carregar_registros(caminhos)
     if args.cenario:
         registros = [r for r in registros if r.cenario == args.cenario]
@@ -471,6 +523,9 @@ def modo_analisar(args) -> int:
     print(tabela_texto(resultado))
 
     pasta = args.saida or os.path.join(RAIZ, "resultados", "analise")
+    if getattr(args, "dry_run", False):
+        print("  (dry-run: nenhum arquivo gravado)")
+        return 0
     for caminho in salvar(resultado, pasta):
         print(f"  gravado: {caminho}")
         log.info("gravado: %s", caminho)
@@ -478,6 +533,34 @@ def modo_analisar(args) -> int:
         print("\n  aviso: sem dados suficientes para teste de hipotese "
               "(precisa de 2+ protocolos e 2+ execucoes por protocolo).")
     return 0
+
+
+def modo_artigo(args) -> int:
+    import importlib.util
+
+    log = flora_log.obter_logger("artigo")
+    if getattr(args, "dry_run", False):
+        args.sementes = 1
+        args.horizonte = 0.1
+        args.sem_log = True
+    spec = importlib.util.spec_from_file_location(
+        "gerar_tabelas_artigo",
+        os.path.join(RAIZ, "scripts", "gerar_tabelas_artigo.py"),
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    argv = ["--sementes", str(args.sementes),
+            "--horizonte", str(args.horizonte),
+            "--saida", args.saida]
+    if getattr(args, "trabalhadores", None):
+        argv += ["--trabalhadores", str(args.trabalhadores)]
+    if getattr(args, "dry_run", False):
+        argv.append("--dry-run")
+    print(f"Gerando tabelas do artigo | sementes={args.sementes} | "
+          f"horizonte={args.horizonte:g} h | saida={args.saida}")
+    log.info("artigo: sementes=%d horizonte=%g saida=%s", args.sementes,
+             args.horizonte, args.saida)
+    return int(mod.main(argv) or 0)
 
 
 # ---------------------------------------------------------------------------
@@ -517,6 +600,9 @@ def modo_carta(args) -> int:
     inicio = time.perf_counter()
     carta = CartaNautica(opcoes)
     img = carta.render(cenario, t_h, motor=motor)
+    if getattr(args, "dry_run", False):
+        print("dry-run: carta nao gravada")
+        return 0
     caminho = carta.salvar(img, args.saida)
     print(f"Carta salva em {caminho} ({img.width}x{img.height} px, "
           f"{time.perf_counter() - inicio:.1f}s)")
@@ -529,6 +615,14 @@ def modo_carta(args) -> int:
 # 7. MODO: GUI
 # ---------------------------------------------------------------------------
 def modo_gui(args) -> int:
+    if getattr(args, "dry_run", False):
+        from flora_dtn import MotorDTN
+        cfg = construir_cfg(args)
+        motor = MotorDTN(cfg).executar()
+        r = motor.resumo()
+        print(f"dry-run: cenario {cfg.cenario} | protocolo {cfg.protocolo} | "
+              f"horizonte {cfg.horizonte_h:g} h | TED {r.get('ted_percentual')}%")
+        return 0
     from flora_ui import Aplicacao
 
     cfg = construir_cfg(args)
@@ -566,6 +660,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     comando = args.comando or "gui"
 
+    if getattr(args, "dry_run", False):
+        args.sem_log = True
+        if comando in ("rodar", "comparar", "gui", "carta", "artigo"):
+            if hasattr(args, "horizonte"):
+                args.horizonte = 0.1
+            if hasattr(args, "semente"):
+                args.semente = 20260826
+            if hasattr(args, "sementes"):
+                args.sementes = 1
+
     # O banner e o log valem para todos os modos, inclusive a GUI.
     print(flora_versao.banner())
     caminho_log = _configurar_log(args)
@@ -583,6 +687,7 @@ def main(argv: list[str] | None = None) -> int:
             "carta": modo_carta,
             "comparar": modo_comparar,
             "analisar": modo_analisar,
+            "artigo": modo_artigo,
         }[comando](args)
     except Exception:
         log.exception("falha no comando %s", comando)

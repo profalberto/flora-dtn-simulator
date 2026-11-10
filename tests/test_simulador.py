@@ -519,7 +519,15 @@ def test_cobertura_de_gateway_ignora_os_moveis():
     assert 0.0 < cov_a < 1.0, "a rota nao pode ficar nem sem cobertura nem totalmente coberta"
 
 
-def test_gateway_movel_acompanha_a_embarcacao():
+def test_gateways_fixos_sao_dois_e_moveis_sao_quatro() -> None:
+    info = fd.listar_gateways()
+    assert len(info["fixos"]) == 2
+    assert {g["nome"] for g in info["fixos"]} == {"Porto de Manaus", "Terminal Itacoatiara"}
+    assert len(info["moveis"]) == 4
+    assert len(info["municipios_excluidos"]) == 5
+    excluidos = {g["nome"] for g in info["municipios_excluidos"]}
+    assert excluidos == {"Urucurituba", "Careiro da Varzea", "Autazes",
+                        "Silves", "Itapiranga"}
     cfg = fd.ConfiguracaoDTN()
     rng = __import__("random").Random(3)
     no = fd.Embarcacao(0, "PRINCIPAL", fg.CANAL_PRINCIPAL, rng)

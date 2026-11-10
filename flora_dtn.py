@@ -635,6 +635,77 @@ def construir_supernos_moveis(frota, cfg: "ConfiguracaoDTN") -> list[SuperNo]:
     ]
 
 
+def construir_frota(cfg: "ConfiguracaoDTN") -> list["Embarcacao"]:
+    """Monta a frota padrao a partir da composicao, com a semente de ``cfg``."""
+    rng = random.Random(cfg.semente)
+    frota: list["Embarcacao"] = []
+    id_no = 0
+    for tipo, quantidade in cfg.composicao_frota.items():
+        for _ in range(quantidade):
+            frota.append(Embarcacao(id_no, tipo, CANAL_PRINCIPAL, rng))
+            id_no += 1
+    return frota
+
+
+def listar_gateways(cfg: "ConfiguracaoDTN | None" = None,
+                    frota: list["Embarcacao"] | None = None,
+                    supernos: list["SuperNo"] | None = None,
+                    moveis: list["SuperNo"] | None = None) -> dict:
+    """
+    Fonte unica de verdade sobre os gateways do modelo.
+
+    Devolve um dicionario com ``fixos`` (Manaus e Itacoatiara), ``moveis``
+    (um por embarcacao PRINCIPAL) e ``municipios_excluidos`` (os cinco
+    municipios citados na tese que nao recebem gateway, com motivo).
+    """
+    from flora_geometria import CIDADES_FORA_DO_CORREDOR, mundo_para_geo
+
+    if cfg is None:
+        cfg = ConfiguracaoDTN()
+    if supernos is None:
+        supernos = construir_supernos(cfg.alcance_gateway_fixo_km)
+    if moveis is None:
+        if frota is None:
+            frota = construir_frota(cfg)
+        moveis = construir_supernos_moveis(frota, cfg)
+
+    fixos = []
+    for sn in supernos:
+        lat, lon = mundo_para_geo(float(sn.pos[0]), float(sn.pos[1]))
+        fixos.append({
+            "nome": sn.nome,
+            "lat": round(float(lat), 6),
+            "lon": round(float(lon), 6),
+            "km": round(float(sn.km_canal), 3),
+            "raio_km": sn.alcance_km,
+        })
+
+    moveis_list = []
+    for sn in moveis:
+        host = getattr(sn, "anfitriao", None)
+        moveis_list.append({
+            "id_embarcacao": getattr(host, "id", None),
+            "raio_km": sn.alcance_km,
+            "cota_por_hora": sn.bundles_por_h,
+        })
+
+    excluidos = [
+        {
+            "nome": c["cidade"],
+            "lat": c["lat"],
+            "lon": c["lon"],
+            "motivo": c["motivo"],
+        }
+        for c in CIDADES_FORA_DO_CORREDOR
+    ]
+
+    return {
+        "fixos": fixos,
+        "moveis": moveis_list,
+        "municipios_excluidos": excluidos,
+    }
+
+
 # ===========================================================================
 # 7. EMBARCACAO
 # ===========================================================================
@@ -1157,6 +1228,7 @@ class MotorDTN:
         self.frota: list[Embarcacao] = self._construir_frota()
         self.supernos: list[SuperNo] = construir_supernos(cfg.alcance_gateway_fixo_km)
         self.supernos_moveis: list[SuperNo] = construir_supernos_moveis(self.frota, cfg)
+        self.gateways_info: dict = listar_gateways(cfg, self.frota, self.supernos, self.supernos_moveis)
         # os moveis entram na mesma lista de drenagem: nenhum grupo do
         # protocolo distingue um terminal de terra de um terminal a bordo
         self.supernos = self.supernos + self.supernos_moveis
@@ -1791,6 +1863,7 @@ class MotorDTN:
             "frota": [self._linha_frota(no)
                       for no in sorted(self.frota, key=lambda x: x.id)],
             "supernos": [self._superno_dict(no) for no in self.supernos],
+            "gateways": self.gateways_info,
             "series": {
                 "ted": [[round(h, 3), round(v, 3)] for h, v in m.serie_ted],
                 "lpa_minutos": [[round(h, 3), round(v, 3)]

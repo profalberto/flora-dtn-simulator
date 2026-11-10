@@ -22,6 +22,8 @@ from __future__ import annotations
 import os
 import subprocess
 
+from flora_geometria import DISTANCIA_CORREDOR_KM
+
 #: Nome publico do projeto.
 NOME = "FLoRA-DTN"
 
@@ -103,7 +105,7 @@ def _descobrir_commit(base: str) -> str:
 
 def versao_completa(raiz: str | None = None) -> str:
     """Texto de uma linha, por exemplo ``FLoRA-DTN 1.1.0 (commit abc1234)``."""
-    return f"{NOME} {VERSAO} (commit {resolver_commit(raiz)})"
+    return f"{NOME} {VERSAO} (commit {resolver_commit(raiz)}) distancia_corredor_km={DISTANCIA_CORREDOR_KM}"
 
 
 def banner(raiz: str | None = None) -> str:
@@ -111,7 +113,7 @@ def banner(raiz: str | None = None) -> str:
     return (
         f"{NOME} {VERSAO}\n"
         f"Simulador DTN-LoRa da calha do Amazonas (UFAM)\n"
-        f"commit {resolver_commit(raiz)} | Python {_python()}"
+        f"commit {resolver_commit(raiz)} | Python {_python()} | distancia_corredor_km={DISTANCIA_CORREDOR_KM}"
     )
 
 

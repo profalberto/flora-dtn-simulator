@@ -77,6 +77,16 @@ OFFSETO_FAIXA_KM = 0.45
 #: distancia. Limita o pico de memoria sem prejudicar o rendimento.
 _BLOCO_DISTANCIA = 1024
 
+#: Comprimento do eixo do corredor Manaus-Itacoatiara medido no OpenStreetMap.
+#: Fonte canonica da distancia usada pelo modelo; o artigo cita 270 km
+#: (ver DISTANCIA_ARTIGO_KM).
+DISTANCIA_CORREDOR_KM = 208.9
+
+#: Valor citado no artigo v8 (Secoes 1.1 e 5.8). A diferenca em relacao a
+#: DISTANCIA_CORREDOR_KM corresponde ao trecho ate Urucurituba e a jusante,
+#: que o modelo nao inclui; sera resolvida editorialmente.
+DISTANCIA_ARTIGO_KM = 270.0
+
 
 # ---------------------------------------------------------------------------
 # 3. CONVERSOES

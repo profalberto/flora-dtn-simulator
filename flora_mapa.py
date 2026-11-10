@@ -1124,7 +1124,7 @@ class CartaNautica:
         """Rosa dos ventos de 16 pontas, estilo carta náutica DHN."""
         import math as _m
         # 16 pontas: N S L O e intermediárias
-        pontos_principais = [0, 90, 180, 270]    # N L S O
+        pontos_principais = [0, 90, 180, -90]    # N L S O
         pontos_inter = [45, 135, 225, 315]        # NL NR SL SR -> NE SE SW NW
         pontos_terciarios = [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5]
         # desenhar em 3 tamanhos

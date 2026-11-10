@@ -137,6 +137,70 @@ def _converter(valor) -> float | None:
     return numero
 
 
+def validar_consistencia(caminho_csv: str, caminho_json: str,
+                        tolerancia: float = 0.001) -> tuple[bool, list[tuple]]:
+    """
+    Compara um ``_metricas.csv`` com o ``_simulacao.json`` da mesma execucao.
+
+    Devolve ``(True, [])`` se tudo estiver dentro da tolerancia relativa e
+    ``(False, divergencias)`` caso contrario. Cada divergencia e uma tupla
+    ``(campo, valor_csv, valor_json)``.
+    """
+    divergencias: list[tuple] = []
+    with open(caminho_csv, newline="", encoding="utf-8-sig") as fh:
+        linhas = list(csv.DictReader(fh))
+    with open(caminho_json, encoding="utf-8") as fh:
+        dados = json.load(fh)
+    resumo = dados.get("resumo", dados)
+
+    if len(linhas) != 1:
+        divergencias.append(("linhas", len(linhas), 1))
+        return False, divergencias
+    linha = linhas[0]
+
+    def comparar_campo(campo_csv: str, campo_json: str) -> None:
+        valor_csv = linha.get(campo_csv)
+        if valor_csv == "":
+            valor_csv = None
+        valor_json = resumo.get(campo_json, resumo.get(campo_csv))
+        if valor_csv is None or valor_json is None:
+            if valor_csv != valor_json and not (valor_csv is None and valor_json is None):
+                # empty string vs None are equivalent
+                if not (valor_csv in (None, "") and valor_json in (None, "")):
+                    divergencias.append((campo_csv, valor_csv, valor_json))
+            return
+        try:
+            a = float(valor_csv)
+            b = float(valor_json)
+        except (TypeError, ValueError):
+            if str(valor_csv) != str(valor_json):
+                divergencias.append((campo_csv, valor_csv, valor_json))
+            return
+        if b == 0:
+            if abs(a - b) > tolerancia:
+                divergencias.append((campo_csv, a, b))
+        else:
+            if abs(a - b) / max(abs(b), 1e-12) > tolerancia:
+                divergencias.append((campo_csv, a, b))
+
+    for campo in ("protocolo", "cenario", "semente"):
+        if str(linha.get(campo)) != str(resumo.get(campo)):
+            divergencias.append((campo, linha.get(campo), resumo.get(campo)))
+
+    csv_horizonte = linha.get(COLUNA_HORIZONTE)
+    json_horizonte = resumo.get(COLUNA_HORIZONTE, resumo.get("horizonte_h"))
+    if csv_horizonte is not None and json_horizonte is not None:
+        comparar_campo(COLUNA_HORIZONTE, COLUNA_HORIZONTE)
+        if COLUNA_HORIZONTE not in resumo and "horizonte_h" in resumo:
+            comparar_campo(COLUNA_HORIZONTE, "horizonte_h")
+
+    for campo in ("ted_percentual", "lpa_minutos", "car_percentual",
+                  "tci_horas", "transmissoes"):
+        comparar_campo(campo, campo)
+
+    return (len(divergencias) == 0, divergencias)
+
+
 def _registro_de_linha(linha: dict) -> Registro | None:
     # O JSON completo do modo `exportar_simulacao` guarda as metricas em
     # ``resumo``; achatar aqui deixa o mesmo leitor servir aos CSV e ao JSON.
@@ -312,17 +376,23 @@ def comparar_protocolos(
             valores = [v for lista in listas for v in lista]
             if max(valores) == min(valores):
                 return {"nome": None, "estatistica": None, "p": None,
-                        "n_blocos": len(chaves), "protocolos": protocolos}
+                        "n_blocos": len(chaves), "protocolos": protocolos,
+                        "tamanho_efeito": None}
             try:
                 from scipy import stats
 
                 estat, p = stats.friedmanchisquare(*listas)
+                k = len(protocolos)
+                n_blocos = len(chaves)
+                tamanho_efeito = (float(estat) / (n_blocos * (k - 1))
+                                  if n_blocos > 0 and k > 1 else None)
                 return {
                     "nome": "friedman",
                     "estatistica": float(estat),
                     "p": float(p),
-                    "n_blocos": len(chaves),
+                    "n_blocos": n_blocos,
                     "protocolos": protocolos,
+                    "tamanho_efeito": tamanho_efeito,
                 }
             except ValueError:
                 pass
@@ -333,18 +403,26 @@ def comparar_protocolos(
             from scipy import stats
 
             estat, p = stats.f_oneway(*[grupos[p] for p in usaveis])
+            k = len(usaveis)
+            n = max(len(grupos[p]) for p in usaveis)
+            df_between = k - 1
+            df_within = n * k - k
+            tamanho_efeito = ((float(estat) * df_between)
+                              / (float(estat) * df_between + df_within)
+                              if df_within > 0 else None)
             return {
                 "nome": "anova",
                 "estatistica": float(estat),
                 "p": float(p),
-                "n_blocos": max(len(grupos[p]) for p in usaveis),
+                "n_blocos": n,
                 "protocolos": usaveis,
+                "tamanho_efeito": tamanho_efeito,
             }
         except ValueError:
             pass
 
     return {"nome": None, "estatistica": None, "p": None, "n_blocos": 0,
-            "protocolos": protocolos}
+            "protocolos": protocolos, "tamanho_efeito": None}
 
 
 # ---------------------------------------------------------------------------

@@ -236,7 +236,46 @@ def test_analisar_usa_anova_quando_nao_ha_blocos_pareados():
     assert teste["p_holm"] is not None
 
 
-def test_analisar_le_o_json_completo_e_nao_duplica_a_execucao(tmp_path):
+def test_csv_e_json_sao_consistentes(tmp_path):
+    codigo = cli.main([
+        "rodar", "-c", "C1", "-p", "flora", "-H", "0.2", "-s", "7",
+        "-o", str(tmp_path), "--sem-log",
+    ])
+    assert codigo == 0
+    csv_path = next(tmp_path.glob("*_metricas.csv"))
+    json_path = next(tmp_path.glob("*_simulacao.json"))
+    ok, diffs = flora_analise.validar_consistencia(str(csv_path), str(json_path))
+    assert ok, diffs
+
+    import csv as _csv
+    with open(csv_path, newline="", encoding="utf-8-sig") as fh:
+        linhas = list(_csv.DictReader(fh))
+    campo = "ted_percentual"
+    linhas[0][campo] = str(float(linhas[0][campo]) + 10.0)
+    with open(csv_path, "w", newline="", encoding="utf-8-sig") as fh:
+        w = _csv.DictWriter(fh, fieldnames=list(linhas[0].keys()))
+        w.writeheader()
+        w.writerows(linhas)
+    ok2, diffs2 = flora_analise.validar_consistencia(str(csv_path), str(json_path))
+    assert not ok2
+    assert any(d[0] == campo for d in diffs2)
+
+
+def test_analisar_exemplos(tmp_path):
+    destino = tmp_path / "analise"
+    codigo = cli.main([
+        "analisar", "-e", os.path.join(RAIZ, "exemplos"),
+        "-o", str(destino), "--sem-log",
+    ])
+    assert codigo == 0
+    assert (destino / "analise_estatistica.csv").exists()
+    assert (destino / "analise_estatistica.json").exists()
+    with open(destino / "analise_estatistica.csv", encoding="utf-8-sig") as fh:
+        linhas = list(csv.reader(fh))
+    assert len(linhas) >= 6  # cabecalho + 5 protocolos
+    with open(destino / "analise_estatistica.json", encoding="utf-8") as fh:
+        dados = json.load(fh)
+    assert dados["n_registros"] == 5
     codigo = cli.main([
         "rodar", "-c", "C1", "-p", "slp", "-H", "0.2", "-s", "9",
         "-o", str(tmp_path), "--sem-log",

@@ -2347,7 +2347,7 @@ class Aplicacao:
         raio = self.visao.largura_px(16.0 + 3.0 * pulso)
         pygame.draw.circle(self.tela, (8, 14, 20), (x, y), raio + 2, 3)
         pygame.draw.circle(self.tela, (255, 214, 92), (x, y), raio, 2)
-        for ang in (0, 90, 180, 270):
+        for ang in (0, 90, 180, -90):
             a = math.radians(ang)
             pygame.draw.circle(
                 self.tela, (255, 240, 190),
