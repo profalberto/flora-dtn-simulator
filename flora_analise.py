@@ -315,9 +315,10 @@ def shapiro(valores: Sequence[float]) -> dict:
 # ---------------------------------------------------------------------------
 # 3. TESTES ENTRE PROTOCOLOS
 # ---------------------------------------------------------------------------
-def _blocos(registros: Sequence[Registro], metrica: str) -> dict[str, dict[str, float]]:
+def _blocos(registros: Sequence[Registro], metrica: str) -> tuple[dict[str, dict[str, float]], set[str]]:
     """
-    Mapa protocolo -> chave do bloco -> valor.
+    Mapa protocolo -> chave do bloco -> valor, e o conjunto de protocolos
+    que repetiram um bloco (e portanto nao sao emparelhavel).
 
     A chave e o par (cenario, semente, horizonte): o mesmo experimento rodado
     em protocolos diferentes. Quando um protocolo repete a mesma chave, o
@@ -335,12 +336,7 @@ def _blocos(registros: Sequence[Registro], metrica: str) -> dict[str, dict[str, 
         if chave in alvo:
             duplicados.add(protocolo)
         alvo[chave] = valor
-    if duplicados:
-        # Marca os protocolos com repeticao para que o emparelhamento seja
-        # descartado; a ANOVA independente continua valendo.
-        for protocolo in duplicados:
-            dados[protocolo]["__duplicado__"] = float("nan")
-    return dados
+    return dados, duplicados
 
 
 def comparar_protocolos(
@@ -353,7 +349,7 @@ def comparar_protocolos(
     ANOVA de um fator caso contrario, desde que haja dois grupos com ao menos
     duas observacoes. Sem condicoes, devolve ``teste=None``.
     """
-    por_protocolo = _blocos(registros, metrica)
+    por_protocolo, duplicados = _blocos(registros, metrica)
     protocolos = list(por_protocolo)
     grupos = {
         protocolo: [v for k, v in valores.items() if k != "__duplicado__"]
@@ -362,7 +358,7 @@ def comparar_protocolos(
 
     emparelhado = (
         len(protocolos) >= 3
-        and not any("__duplicado__" in v for v in por_protocolo.values())
+        and not duplicados
     )
     if emparelhado:
         chaves = set.intersection(*[set(por_protocolo[p]) for p in protocolos])

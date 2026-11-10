@@ -864,8 +864,8 @@ rodape de toda carta exportada, e o `json` gravado em `dados_osm/` traz
 
 ## Estado atual
 
-Rodando `python tests/test_simulador.py`, a suite da **85/85**; com
-`python -m pytest tests -q`, **101/101** (85 do modelo + 16 de fumaca). Vale
+Rodando `python tests/test_simulador.py`, a suíte dá **85/85**; com
+`python -m pytest tests -q`, **102/102** (85 do modelo + 17 de fumaca). Vale
 registrar o que ainda nao esta resolvido, porque sao questoes de tese e nao de
 codigo:
 

@@ -147,7 +147,7 @@ FAMILIA_FONTE = "segoeui, arial, liberation sans, sans-serif"
 # elementos opacos, e por isso as duas bases leem igual.
 COR_MARGEM = (18, 46, 40)
 COR_LEITO = (26, 74, 122)
-COR_FUNDO = (16, 52, 92)
+COR_LEITO_RIO = (16, 52, 92)
 COR_HALO = (46, 108, 158)
 COR_EIXO = (245, 232, 196)
 COR_FLUXO = (255, 250, 235)
@@ -426,6 +426,8 @@ class DialogoAdicionarEmbarcacao:
 
     def _atualizar_km(self, mouse_x: int) -> None:
         sr = self._slider_rect()
+        if sr.width <= 0:
+            return
         frac = max(0.0, min(1.0, (mouse_x - sr.x) / sr.width))
         self._km = frac * CANAL_PRINCIPAL.comprimento_km
 
@@ -1462,7 +1464,7 @@ class Aplicacao:
             return
         # a base cobre o mapa inteiro e o painel cobre a coluna lateral; assim
         # basta limpar a area do mapa, e a barra de menus e desenhada por cima
-        self.tela.fill(COR_FUNDO, MAPA_RECT)
+        self.tela.fill(COR_LEITO_RIO, MAPA_RECT)
         self._suavizar_frota()
         self._desenhar_base()
         self._desenhar_rotas()

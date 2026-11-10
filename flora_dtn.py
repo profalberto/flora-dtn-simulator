@@ -964,7 +964,7 @@ class Embarcacao:
         if bd.bid in self.buffer:
             return False
         if len(self.buffer) >= limite:
-            self._expulsar(limite, t_s)
+            self._expulsar(limite, t_s, bd)
             if len(self.buffer) >= limite:
                 return False
         self.buffer[bd.bid] = bd
@@ -977,11 +977,12 @@ class Embarcacao:
     def marcar_recebido(self, bid: str) -> None:
         self.bids_recebidos.add(bid)
 
-    def _expulsar(self, limite: int, t_s: float) -> None:
+    def _expulsar(self, limite: int, t_s: float, novo: "Bundle | None" = None) -> None:
         if not self.buffer:
             return
-        bid = min(self.buffer, key=lambda k: (self.buffer[k].prioridade, self.buffer[k].idade_h(t_s), k))
-        del self.buffer[bid]
+        pior_bid = min(self.buffer, key=lambda k: (self.buffer[k].prioridade, self.buffer[k].idade_h(t_s), k))
+        if novo is None or novo.prioridade > self.buffer[pior_bid].prioridade:
+            del self.buffer[pior_bid]
 
     def expirar(self, t_s: float) -> int:
         mortos = [bid for bid, bd in self.buffer.items() if bd.expirado(t_s)]

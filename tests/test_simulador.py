@@ -540,7 +540,31 @@ def test_gateways_fixos_sao_dois_e_moveis_sao_quatro() -> None:
     assert np.allclose(np.asarray(sn.pos), np.asarray(no.pos))
 
 
-def test_gateway_movel_so_nas_embarcacoes_grandes():
+def test_bundle_de_seguranca_expulsa_rotineiro_antigo() -> None:
+    rng = __import__("random").Random(7)
+    no = fd.Embarcacao(0, "PRINCIPAL", fg.CANAL_PRINCIPAL, rng)
+    limite = 1
+    rotineiro = fd.Bundle(bid="r1", categoria=fd.CAT_ROTINA, origem=0,
+                          t_criacao_s=0.0, carga={})
+    seguranca = fd.Bundle(bid="s1", categoria=fd.CAT_SEGURANCA, origem=0,
+                          t_criacao_s=10.0, carga={})
+    assert no.inserir(rotineiro, 0.0, limite) is True
+    assert "r1" in no.buffer
+    # Buffer cheio: o bundle de seguranca (prioridade maior) expulsa o rotineiro.
+    assert no.inserir(seguranca, 10.0, limite) is True
+    assert "s1" in no.buffer
+    assert "r1" not in no.buffer
+
+    # O inverso nao acontece: um rotineiro nao expulsa um de seguranca.
+    no2 = fd.Embarcacao(1, "PRINCIPAL", fg.CANAL_PRINCIPAL, rng)
+    seg = fd.Bundle(bid="s2", categoria=fd.CAT_SEGURANCA, origem=1,
+                    t_criacao_s=0.0, carga={})
+    rot = fd.Bundle(bid="r2", categoria=fd.CAT_ROTINA, origem=1,
+                    t_criacao_s=10.0, carga={})
+    assert no2.inserir(seg, 0.0, limite) is True
+    assert no2.inserir(rot, 10.0, limite) is False
+    assert "s2" in no2.buffer
+    assert "r2" not in no2.buffer
     cfg = fd.ConfiguracaoDTN()
     rng = __import__("random").Random(4)
     frota = [fd.Embarcacao(i, t, fg.CANAL_PRINCIPAL, rng)

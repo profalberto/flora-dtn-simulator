@@ -138,7 +138,7 @@ numbers coincide.
 
 ```bash
 python tests/test_simulador.py            # 85 model tests, no extra dependencies
-python -m pytest tests -q                 # 101 tests (model + smoke)
+python -m pytest tests -q                 # 102 tests (model + smoke)
 python -m pytest tests/test_fumaca.py -q  # smoke only
 ```
 
