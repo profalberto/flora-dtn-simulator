@@ -191,6 +191,20 @@ def test_analisar_escolhe_friedman_e_aplica_holm(tmp_path):
         assert grupo["ic95_inf"] < grupo["media"] < grupo["ic95_sup"]
 
 
+def test_analisar_nao_testa_metrica_constante():
+    registros = []
+    for protocolo in ("flora", "slp", "sc"):
+        for semente in range(3):
+            registros.append(flora_analise.Registro(
+                protocolo=protocolo, cenario="C1", semente=str(semente),
+                horizonte="2.0", valores={"car_percentual": 100.0},
+            ))
+    resultado = flora_analise.analisar(registros, metricas=["car_percentual"])
+    teste = resultado["metricas"]["car_percentual"]["teste"]
+    assert teste["nome"] is None
+    assert teste["p"] is None
+
+
 def test_analisar_pela_linha_de_comando(tmp_path, capsys):
     _gerar_metricas(tmp_path)
     destino = tmp_path / "analise"

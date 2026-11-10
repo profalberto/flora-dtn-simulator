@@ -1,5 +1,7 @@
 # FLoRA-DTN — Simulador de redes tolerantes a atraso com LoRa
 
+**Portugues** | [English](README.en.md)
+
 Simulador do experimento FLoRA (Fluxo LoRa) para compartilhamento de
 informacoes hidrograficas entre embarcacoes na calha do Amazonas, entre Manaus
 e Itacoatiara (UFAM). Compara o protocolo utilidade-baseado FLoRA com
@@ -752,7 +754,7 @@ rodape de toda carta exportada, e o `json` gravado em `dados_osm/` traz
 ## Estado atual
 
 Rodando `python tests/test_simulador.py`, a suite da **85/85**; com
-`python -m pytest tests -q`, **100/100** (85 do modelo + 15 de fumaca). Vale
+`python -m pytest tests -q`, **101/101** (85 do modelo + 16 de fumaca). Vale
 registrar o que ainda nao esta resolvido, porque sao questoes de tese e nao de
 codigo:
 

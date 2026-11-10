@@ -1,0 +1,553 @@
+{
+  "gerado_em": "2026-11-10T10:07:17",
+  "n_registros": 25,
+  "protocolos": [
+    "epidemico",
+    "flora",
+    "sc",
+    "slp",
+    "spray"
+  ],
+  "metricas": {
+    "ted_percentual": {
+      "grupos": {
+        "epidemico": {
+          "n": 5,
+          "media": 85.5138,
+          "desvio": 6.694635180500876,
+          "minimo": 79.545,
+          "maximo": 95.652,
+          "ic95_inf": 77.20131251526371,
+          "ic95_sup": 93.8262874847363,
+          "w": 0.9033805502164468,
+          "p": 0.42885105000533186
+        },
+        "flora": {
+          "n": 5,
+          "media": 71.5874,
+          "desvio": 6.272535635610214,
+          "minimo": 64.0,
+          "maximo": 80.435,
+          "ic95_inf": 63.79901832381263,
+          "ic95_sup": 79.37578167618737,
+          "w": 0.9683890217669673,
+          "p": 0.8648168278987607
+        },
+        "sc": {
+          "n": 5,
+          "media": 51.0114,
+          "desvio": 10.9153864017725,
+          "minimo": 40.0,
+          "maximo": 65.217,
+          "ic95_inf": 37.45815767843616,
+          "ic95_sup": 64.56464232156384,
+          "w": 0.9182206312815704,
+          "p": 0.5185264095530879
+        },
+        "slp": {
+          "n": 5,
+          "media": 51.0114,
+          "desvio": 10.9153864017725,
+          "minimo": 40.0,
+          "maximo": 65.217,
+          "ic95_inf": 37.45815767843616,
+          "ic95_sup": 64.56464232156384,
+          "w": 0.9182206312815704,
+          "p": 0.5185264095530879
+        },
+        "spray": {
+          "n": 5,
+          "media": 53.996399999999994,
+          "desvio": 8.634841996238261,
+          "minimo": 46.512,
+          "maximo": 65.217,
+          "ic95_inf": 43.27482756309303,
+          "ic95_sup": 64.71797243690696,
+          "w": 0.8220198418861224,
+          "p": 0.12102141207005523
+        }
+      },
+      "teste": {
+        "nome": "friedman",
+        "estatistica": 19.191011235955052,
+        "p": 0.0007208527259932496,
+        "n_blocos": 5,
+        "protocolos": [
+          "epidemico",
+          "flora",
+          "sc",
+          "slp",
+          "spray"
+        ],
+        "p_holm": 0.0029963953643240013
+      }
+    },
+    "ted_no_horizonte_percentual": {
+      "grupos": {
+        "epidemico": {
+          "n": 5,
+          "media": 85.5138,
+          "desvio": 6.694635180500876,
+          "minimo": 79.545,
+          "maximo": 95.652,
+          "ic95_inf": 77.20131251526371,
+          "ic95_sup": 93.8262874847363,
+          "w": 0.9033805502164468,
+          "p": 0.42885105000533186
+        },
+        "flora": {
+          "n": 5,
+          "media": 71.5874,
+          "desvio": 6.272535635610214,
+          "minimo": 64.0,
+          "maximo": 80.435,
+          "ic95_inf": 63.79901832381263,
+          "ic95_sup": 79.37578167618737,
+          "w": 0.9683890217669673,
+          "p": 0.8648168278987607
+        },
+        "sc": {
+          "n": 5,
+          "media": 51.0114,
+          "desvio": 10.9153864017725,
+          "minimo": 40.0,
+          "maximo": 65.217,
+          "ic95_inf": 37.45815767843616,
+          "ic95_sup": 64.56464232156384,
+          "w": 0.9182206312815704,
+          "p": 0.5185264095530879
+        },
+        "slp": {
+          "n": 5,
+          "media": 51.0114,
+          "desvio": 10.9153864017725,
+          "minimo": 40.0,
+          "maximo": 65.217,
+          "ic95_inf": 37.45815767843616,
+          "ic95_sup": 64.56464232156384,
+          "w": 0.9182206312815704,
+          "p": 0.5185264095530879
+        },
+        "spray": {
+          "n": 5,
+          "media": 53.996399999999994,
+          "desvio": 8.634841996238261,
+          "minimo": 46.512,
+          "maximo": 65.217,
+          "ic95_inf": 43.27482756309303,
+          "ic95_sup": 64.71797243690696,
+          "w": 0.8220198418861224,
+          "p": 0.12102141207005523
+        }
+      },
+      "teste": {
+        "nome": "friedman",
+        "estatistica": 19.191011235955052,
+        "p": 0.0007208527259932496,
+        "n_blocos": 5,
+        "protocolos": [
+          "epidemico",
+          "flora",
+          "sc",
+          "slp",
+          "spray"
+        ],
+        "p_holm": 0.0029963953643240013
+      }
+    },
+    "lpa_minutos": {
+      "grupos": {
+        "epidemico": {
+          "n": 5,
+          "media": 5.274,
+          "desvio": 3.955531569839887,
+          "minimo": 2.19,
+          "maximo": 11.9,
+          "ic95_inf": 0.36255885597139415,
+          "ic95_sup": 10.185441144028605,
+          "w": 0.8099645093873419,
+          "p": 0.09745381974443071
+        },
+        "flora": {
+          "n": 5,
+          "media": 7.359999999999999,
+          "desvio": 4.453420034086163,
+          "minimo": 2.26,
+          "maximo": 12.23,
+          "ic95_inf": 1.8303486747958315,
+          "ic95_sup": 12.889651325204166,
+          "w": 0.8631427716402104,
+          "p": 0.23975328887697228
+        },
+        "sc": {
+          "n": 5,
+          "media": 5.662000000000001,
+          "desvio": 4.012844377745043,
+          "minimo": 2.26,
+          "maximo": 10.57,
+          "ic95_inf": 0.6793956057595958,
+          "ic95_sup": 10.644604394240407,
+          "w": 0.7797950498439248,
+          "p": 0.05489748925565663
+        },
+        "slp": {
+          "n": 5,
+          "media": 5.662000000000001,
+          "desvio": 4.012844377745043,
+          "minimo": 2.26,
+          "maximo": 10.57,
+          "ic95_inf": 0.6793956057595958,
+          "ic95_sup": 10.644604394240407,
+          "w": 0.7797950498439248,
+          "p": 0.05489748925565663
+        },
+        "spray": {
+          "n": 5,
+          "media": 4.668,
+          "desvio": 3.1738493978133238,
+          "minimo": 2.19,
+          "maximo": 10.19,
+          "ic95_inf": 0.7271454670144992,
+          "ic95_sup": 8.6088545329855,
+          "w": 0.7701269097587563,
+          "p": 0.04523303752357458
+        }
+      },
+      "teste": {
+        "nome": "friedman",
+        "estatistica": 3.7176470588235255,
+        "p": 0.44556446384009785,
+        "n_blocos": 5,
+        "protocolos": [
+          "epidemico",
+          "flora",
+          "sc",
+          "slp",
+          "spray"
+        ],
+        "p_holm": 0.44556446384009785
+      }
+    },
+    "car_percentual": {
+      "grupos": {
+        "epidemico": {
+          "n": 5,
+          "media": 100.0,
+          "desvio": 0.0,
+          "minimo": 100.0,
+          "maximo": 100.0,
+          "ic95_inf": 100.0,
+          "ic95_sup": 100.0,
+          "w": null,
+          "p": null
+        },
+        "flora": {
+          "n": 5,
+          "media": 100.0,
+          "desvio": 0.0,
+          "minimo": 100.0,
+          "maximo": 100.0,
+          "ic95_inf": 100.0,
+          "ic95_sup": 100.0,
+          "w": null,
+          "p": null
+        },
+        "sc": {
+          "n": 5,
+          "media": 100.0,
+          "desvio": 0.0,
+          "minimo": 100.0,
+          "maximo": 100.0,
+          "ic95_inf": 100.0,
+          "ic95_sup": 100.0,
+          "w": null,
+          "p": null
+        },
+        "slp": {
+          "n": 5,
+          "media": 100.0,
+          "desvio": 0.0,
+          "minimo": 100.0,
+          "maximo": 100.0,
+          "ic95_inf": 100.0,
+          "ic95_sup": 100.0,
+          "w": null,
+          "p": null
+        },
+        "spray": {
+          "n": 5,
+          "media": 100.0,
+          "desvio": 0.0,
+          "minimo": 100.0,
+          "maximo": 100.0,
+          "ic95_inf": 100.0,
+          "ic95_sup": 100.0,
+          "w": null,
+          "p": null
+        }
+      },
+      "teste": {
+        "nome": null,
+        "estatistica": null,
+        "p": null,
+        "n_blocos": 5,
+        "protocolos": [
+          "epidemico",
+          "flora",
+          "sc",
+          "slp",
+          "spray"
+        ],
+        "p_holm": null
+      }
+    },
+    "overhead_copias": {
+      "grupos": {
+        "epidemico": {
+          "n": 5,
+          "media": 7.9536,
+          "desvio": 0.554922336908508,
+          "minimo": 7.2,
+          "maximo": 8.556,
+          "ic95_inf": 7.264572912461605,
+          "ic95_sup": 8.642627087538393,
+          "w": 0.9374037543603821,
+          "p": 0.6476459186609789
+        },
+        "flora": {
+          "n": 5,
+          "media": 2.2784,
+          "desvio": 0.3083185041479022,
+          "minimo": 1.812,
+          "maximo": 2.594,
+          "ic95_inf": 1.895572013419512,
+          "ic95_sup": 2.661227986580488,
+          "w": 0.9456255875359139,
+          "p": 0.7059324523292081
+        },
+        "sc": {
+          "n": 5,
+          "media": 1.0,
+          "desvio": 0.0,
+          "minimo": 1.0,
+          "maximo": 1.0,
+          "ic95_inf": 1.0,
+          "ic95_sup": 1.0,
+          "w": null,
+          "p": null
+        },
+        "slp": {
+          "n": 5,
+          "media": 1.0,
+          "desvio": 0.0,
+          "minimo": 1.0,
+          "maximo": 1.0,
+          "ic95_inf": 1.0,
+          "ic95_sup": 1.0,
+          "w": null,
+          "p": null
+        },
+        "spray": {
+          "n": 5,
+          "media": 1.3542,
+          "desvio": 0.04010860256852637,
+          "minimo": 1.3,
+          "maximo": 1.407,
+          "ic95_inf": 1.304398592172398,
+          "ic95_sup": 1.4040014078276022,
+          "w": 0.9778208177339102,
+          "p": 0.9226387951375712
+        }
+      },
+      "teste": {
+        "nome": "friedman",
+        "estatistica": 20.0,
+        "p": 0.0004993992273873336,
+        "n_blocos": 5,
+        "protocolos": [
+          "epidemico",
+          "flora",
+          "sc",
+          "slp",
+          "spray"
+        ],
+        "p_holm": 0.0029963953643240013
+      }
+    },
+    "transmissoes": {
+      "grupos": {
+        "epidemico": {
+          "n": 5,
+          "media": 310.2,
+          "desvio": 36.540388613149695,
+          "minimo": 252.0,
+          "maximo": 348.0,
+          "ic95_inf": 264.82911497867724,
+          "ic95_sup": 355.57088502132274,
+          "w": 0.9132597160572259,
+          "p": 0.48742500745265926
+        },
+        "flora": {
+          "n": 5,
+          "media": 74.2,
+          "desvio": 11.38859078200635,
+          "minimo": 58.0,
+          "maximo": 87.0,
+          "ic95_inf": 60.05919683570747,
+          "ic95_sup": 88.34080316429254,
+          "w": 0.9474691079552849,
+          "p": 0.7191006540152475
+        },
+        "sc": {
+          "n": 5,
+          "media": 23.2,
+          "desvio": 4.8166378315169185,
+          "minimo": 18.0,
+          "maximo": 30.0,
+          "ic95_inf": 17.219354212219194,
+          "ic95_sup": 29.180645787780804,
+          "w": 0.9569891591491413,
+          "p": 0.7868775738883056
+        },
+        "slp": {
+          "n": 5,
+          "media": 23.2,
+          "desvio": 4.8166378315169185,
+          "minimo": 18.0,
+          "maximo": 30.0,
+          "ic95_inf": 17.219354212219194,
+          "ic95_sup": 29.180645787780804,
+          "w": 0.9569891591491413,
+          "p": 0.7868775738883056
+        },
+        "spray": {
+          "n": 5,
+          "media": 33.4,
+          "desvio": 6.06630035524124,
+          "minimo": 26.0,
+          "maximo": 41.0,
+          "ic95_inf": 25.867693246606247,
+          "ic95_sup": 40.93230675339375,
+          "w": 0.962100283237194,
+          "p": 0.8225280570394315
+        }
+      },
+      "teste": {
+        "nome": "friedman",
+        "estatistica": 20.0,
+        "p": 0.0004993992273873336,
+        "n_blocos": 5,
+        "protocolos": [
+          "epidemico",
+          "flora",
+          "sc",
+          "slp",
+          "spray"
+        ],
+        "p_holm": 0.0029963953643240013
+      }
+    },
+    "energia_total_j": {
+      "grupos": {
+        "epidemico": {
+          "n": 5,
+          "media": 5.8445599999999995,
+          "desvio": 0.796853981605162,
+          "minimo": 4.5807,
+          "maximo": 6.5351,
+          "ic95_inf": 4.855135099215546,
+          "ic95_sup": 6.833984900784453,
+          "w": 0.8886269981749081,
+          "p": 0.35024630866087236
+        },
+        "flora": {
+          "n": 5,
+          "media": 1.42076,
+          "desvio": 0.2891711223479966,
+          "minimo": 1.0129,
+          "maximo": 1.6937,
+          "ic95_inf": 1.0617066280603167,
+          "ic95_sup": 1.7798133719396834,
+          "w": 0.912889017821728,
+          "p": 0.48514487366315745
+        },
+        "sc": {
+          "n": 5,
+          "media": 0.37848,
+          "desvio": 0.09782395923289956,
+          "minimo": 0.2929,
+          "maximo": 0.5418,
+          "ic95_inf": 0.2570155116587559,
+          "ic95_sup": 0.49994448834124405,
+          "w": 0.8622370510156756,
+          "p": 0.23639206174431993
+        },
+        "slp": {
+          "n": 5,
+          "media": 0.37848,
+          "desvio": 0.09782395923289956,
+          "minimo": 0.2929,
+          "maximo": 0.5418,
+          "ic95_inf": 0.2570155116587559,
+          "ic95_sup": 0.49994448834124405,
+          "w": 0.8622370510156756,
+          "p": 0.23639206174431993
+        },
+        "spray": {
+          "n": 5,
+          "media": 0.52432,
+          "desvio": 0.12219511856044003,
+          "minimo": 0.4033,
+          "maximo": 0.7129,
+          "ic95_inf": 0.37259472052726106,
+          "ic95_sup": 0.676045279472739,
+          "w": 0.9051785621816778,
+          "p": 0.43916567074878066
+        }
+      },
+      "teste": {
+        "nome": "friedman",
+        "estatistica": 20.0,
+        "p": 0.0004993992273873336,
+        "n_blocos": 5,
+        "protocolos": [
+          "epidemico",
+          "flora",
+          "sc",
+          "slp",
+          "spray"
+        ],
+        "p_holm": 0.0029963953643240013
+      }
+    }
+  },
+  "familia_testes": 6,
+  "confianca": 0.95,
+  "arquivos": [
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_epidemico_2h_s20260826_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_epidemico_2h_s20260827_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_epidemico_2h_s20260828_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_epidemico_2h_s20260829_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_epidemico_2h_s20260830_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_flora_2h_s20260826_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_flora_2h_s20260827_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_flora_2h_s20260828_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_flora_2h_s20260829_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_flora_2h_s20260830_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_sc_2h_s20260826_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_sc_2h_s20260827_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_sc_2h_s20260828_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_sc_2h_s20260829_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_sc_2h_s20260830_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_slp_2h_s20260826_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_slp_2h_s20260827_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_slp_2h_s20260828_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_slp_2h_s20260829_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_slp_2h_s20260830_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_spray_2h_s20260826_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_spray_2h_s20260827_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_spray_2h_s20260828_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_spray_2h_s20260829_metricas.csv",
+    "C:\\Users\\PROFAL~1\\AppData\\Local\\Temp\\opencode\\amostra_analise\\C2_spray_2h_s20260830_metricas.csv"
+  ]
+}

@@ -305,6 +305,14 @@ def comparar_protocolos(
         if len(chaves) >= 2:
             listas = [[por_protocolo[p][chave] for chave in sorted(chaves)]
                       for p in protocolos]
+            # Friedman divide pela variancia dos postos e devolve NaN quando
+            # todos os valores sao iguais (por exemplo, CAR saturado em 100%).
+            # Nesse caso nao ha efeito a testar, e o scipy ainda emitiria um
+            # aviso de divisao por zero no stderr.
+            valores = [v for lista in listas for v in lista]
+            if max(valores) == min(valores):
+                return {"nome": None, "estatistica": None, "p": None,
+                        "n_blocos": len(chaves), "protocolos": protocolos}
             try:
                 from scipy import stats
 
