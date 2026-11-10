@@ -1,0 +1,12 @@
+# Dependencias de desenvolvimento e teste.
+#
+#   pip install -r requirements-dev.txt
+#   python -m pytest tests -q
+#
+# O pytest roda tanto os testes de fumaca (tests/test_fumaca.py) quanto a
+# suite principal (tests/test_simulador.py), que tambem funciona sozinha:
+#   python tests/test_simulador.py
+
+-r requirements.txt
+
+pytest>=8.0

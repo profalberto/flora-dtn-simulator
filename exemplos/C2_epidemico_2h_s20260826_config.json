@@ -1,0 +1,32 @@
+{
+  "semente": 20260826,
+  "cenario": "C2",
+  "protocolo": "epidemico",
+  "passo_s": 10.0,
+  "horizonte_h": 2.0,
+  "composicao_frota": {
+    "PRINCIPAL": 4,
+    "LANCHA": 6,
+    "RIBEIRINHO": 5
+  },
+  "fator_alcance": 1.0,
+  "perda_sombreamento": 0.25,
+  "taxa_rotina_h": 0.5,
+  "taxa_seguranca_h": 0.08,
+  "taxa_alerta_zona_critica_h": 3.0,
+  "limite_buffer": 120,
+  "horizonte_ted_h": 6.0,
+  "limiar_cobertura_tci": 0.9,
+  "utilidade_alpha": 1.0,
+  "utilidade_sigma_d_km": 30.0,
+  "utilidade_sigma_t_h": 12.0,
+  "limiar_utilidade": 0.5,
+  "fator_retencao": 1.2,
+  "copias_spray": 2,
+  "alcance_gateway_fixo_km": 8.0,
+  "tipos_gateway_movel": [
+    "PRINCIPAL"
+  ],
+  "alcance_gateway_movel_km": 15.0,
+  "bundles_por_hora_gateway_movel": 20.0
+}

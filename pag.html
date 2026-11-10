@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Input Simples</title>
+</head>
+<body>
+    <h2>Digite algo:</h2>
+    <input type="text" id="input" placeholder="Digite aqui...">
+    <button onclick="receber()">OK</button>
+    
+    <p id="resultado"></p>
+
+    <script>
+        function receber() {
+            const texto = document.getElementById('input').value;
+            document.getElementById('resultado').textContent = 'Você digitou: ' + texto;
+            console.log('Digitado:', texto);
+        }
+
+        // terminal.js
+const readline = require('readline');
+
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+rl.question('Digite algo: ', (resposta) => {
+    console.log('Você digitou:', resposta);
+    rl.close();
+});
+    </script>
+</body>
+</html>

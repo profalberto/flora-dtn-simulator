@@ -1,0 +1,16 @@
+# Dependencias do simulador FLoRA-DTN.
+#
+# numpy    - geometria vetorizada, batimetria e metricas.
+# Pillow   - composicao da carta nautica (funciona sem pygame, em servidor).
+# pygame-ce - interface grafica e leitura dos tiles de satelite na tela.
+# scipy    - IC95%, Shapiro-Wilk, ANOVA e Friedman no modo `analisar`.
+#
+# O modo headless (`dtn_simulador.py rodar|carta|comparar|analisar`) dispensa
+# pygame. O scipy so e importado quando o modo `analisar` e usado.
+#
+# Para desenvolver e rodar os testes, use tambem requirements-dev.txt.
+
+numpy>=1.24
+Pillow>=10.0
+pygame-ce>=2.4
+scipy>=1.11

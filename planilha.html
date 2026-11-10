@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planilha MEI - Notas Fiscais</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #1a237e;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            align-items: center;
+        }
+
+        .controls label {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .controls select, .controls input {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 120px;
+        }
+
+        .controls select:focus, .controls input:focus {
+            outline: 2px solid #1a237e;
+            border-color: transparent;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            background: #1a237e;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: #0d1442;
+            transform: scale(1.02);
+        }
+
+        .btn-success {
+            background: #2e7d32;
+        }
+
+        .btn-success:hover {
+            background: #1b5e20;
+        }
+
+        .btn-danger {
+            background: #c62828;
+        }
+
+        .btn-danger:hover {
+            background: #8e0000;
+        }
+
+        .btn-warning {
+            background: #e65100;
+        }
+
+        .btn-warning:hover {
+            background: #bf360c;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background: #1a237e;
+            color: white;
+            padding: 12px 10px;
+            text-align: center;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: center;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .mes {
+            font-weight: bold;
+            color: #1a237e;
+        }
+
+        .total-row {
+            background: #e8eaf6 !important;
+            font-weight: bold;
+        }
+
+        .total-row td {
+            border-top: 2px solid #1a237e;
+        }
+
+        .input-editable {
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            padding: 5px;
+        }
+
+        .input-editable:focus {
+            outline: 2px solid #1a237e;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge-produto {
+            background: #1a237e;
+            color: white;
+        }
+
+        .badge-servico {
+            background: #e65100;
+            color: white;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-box {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .chart-box h3 {
+            color: #1a237e;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 250px;
+            padding: 10px 0;
+            border-bottom: 2px solid #ddd;
+            gap: 5px;
+        }
+
+        .bar-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            height: 100%;
+            justify-content: flex-end;
+        }
+
+        .bar {
+            width: 100%;
+            max-width: 40px;
+            min-height: 5px;
+            border-radius: 4px 4px 0 0;
+            transition: height 0.5s ease;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .bar:hover {
+            opacity: 0.8;
+        }
+
+        .bar-value {
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 5px;
+            color: #333;
+        }
+
+        .bar-label {
+            font-size: 11px;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .summary-card .number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a237e;
+        }
+
+        .summary-card .label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .summary-card .total {
+            color: #2e7d32;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+
+            .summary {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .controls select, .controls input {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .summary {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Controle de Notas Fiscais - MEI</h1>
+        <p class="subtitle">Produtos e Serviços | Janeiro a Dezembro 2026</p>
+
+        <!-- Resumo -->
+        <div class="summary" id="summaryCards">
+            <div class="summary-card">
+                <div class="number" id="totalNotas">0</div>
+                <div class="label">Total de Notas</div>
+            </div>
+            <div class="summary-card">
+                <div class="number total" id="totalFaturamento">R$ 0,00</div>
+                <div class="label">Faturamento Total</div>
+            </div>
+            <div class="summary-card">
+                <div class="number" id="totalProdutos">0</div>
+                <div class="label">Notas - Produtos</div>
+            </div>
+            <div class="summary-card">
+                <div class="number" id="totalServicos">0</div>
+                <div class="label">Notas - Serviços</div>
+            </div>
+            <div class="summary-card">
+                <div class="number" id="totalNotasMes">0</div>
+                <div class="label">Média por Mês</div>
+            </div>
+        </div>
+
+        <!-- Controles -->
+        <div class="controls">
+            <label>📅 Mês:</label>
+            <select id="mesSelect">
+                <option value="Janeiro">Janeiro</option>
+                <option value="Fevereiro">Fevereiro</option>
+                <option value="Março">Março</option>
+                <option value="Abril">Abril</option>
+                <option value="Maio">Maio</option>
+                <option value="Junho">Junho</option>
+                <option value="Julho">Julho</option>
+                <option value="Agosto">Agosto</option>
+                <option value="Setembro">Setembro</option>
+                <option value="Outubro">Outubro</option>
+                <option value="Novembro">Novembro</option>
+                <option value="Dezembro">Dezembro</option>
+            </select>
+
+            <label>🔢 Nº Nota:</label>
+            <input type="number" id="numeroNotaInput" placeholder="Ex: 001" min="1" />
+
+            <label>📦 Produtos:</label>
+            <input type="number" id="produtosInput" placeholder="Qtd" min="0" value="0" />
+
+            <label>🛠️ Serviços:</label>
+            <input type="number" id="servicosInput" placeholder="Qtd" min="0" value="0" />
+
+            <label>💰 Valor (R$):</label>
+            <input type="number" id="valorInput" step="0.01" placeholder="0,00" min="0" />
+
+            <button class="btn btn-success" onclick="adicionarLinha()">➕ Adicionar</button>
+            <button class="btn btn-danger" onclick="limparTabela()">🗑️ Limpar</button>
+            <button class="btn btn-warning" onclick="exportarExcel()">📥 Exportar Excel</button>
+        </div>
+
+        <!-- Tabela -->
+        <div class="table-wrapper">
+            <table id="tabelaNotas">
+                <thead>
+                    <tr>
+                        <th>Mês</th>
+                        <th>Nº Nota</th>
+                        <th>Produtos</th>
+                        <th>Serviços</th>
+                        <th>Total Notas</th>
+                        <th>Valor (R$)</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyNotas">
+                    <!-- Dados serão inseridos aqui -->
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td><strong>TOTAL</strong></td>
+                        <td>-</td>
+                        <td id="totalProdutosFoot">0</td>
+                        <td id="totalServicosFoot">0</td>
+                        <td id="totalNotasFoot">0</td>
+                        <td id="totalValorFoot">R$ 0,00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="charts-container">
+            <div class="chart-box">
+                <h3>📊 Notas por Mês - Produtos</h3>
+                <div class="chart" id="chartProdutos"></div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #1a237e;"></div>
+                        Produtos
+                    </div>
+                </div>
+            </div>
+            <div class="chart-box">
+                <h3>📊 Notas por Mês - Serviços</h3>
+                <div class="chart" id="chartServicos"></div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #e65100;"></div>
+                        Serviços
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dados iniciais de exemplo
+        let dados = [
+            { mes: 'Janeiro', numeroNota: 1, produtos: 5, servicos: 3, valor: 2500.00 },
+            { mes: 'Fevereiro', numeroNota: 2, produtos: 8, servicos: 4, valor: 3800.00 },
+            { mes: 'Março', numeroNota: 3, produtos: 12, servicos: 6, valor: 5200.00 },
+            { mes: 'Abril', numeroNota: 4, produtos: 7, servicos: 5, valor: 3100.00 },
+            { mes: 'Maio', numeroNota: 5, produtos: 15, servicos: 8, valor: 6800.00 },
+            { mes: 'Junho', numeroNota: 6, produtos: 10, servicos: 7, valor: 4500.00 },
+            { mes: 'Julho', numeroNota: 7, produtos: 6, servicos: 4, valor: 2800.00 },
+            { mes: 'Agosto', numeroNota: 8, produtos: 9, servicos: 6, valor: 4200.00 },
+            { mes: 'Setembro', numeroNota: 9, produtos: 14, servicos: 9, valor: 6200.00 },
+            { mes: 'Outubro', numeroNota: 10, produtos: 11, servicos: 7, valor: 4900.00 },
+            { mes: 'Novembro', numeroNota: 11, produtos: 18, servicos: 10, valor: 7500.00 },
+            { mes: 'Dezembro', numeroNota: 12, produtos: 20, servicos: 12, valor: 9200.00 }
+        ];
+
+        const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+        // Função para renderizar a tabela
+        function renderizarTabela() {
+            const tbody = document.getElementById('tbodyNotas');
+            tbody.innerHTML = '';
+
+            if (dados.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            Nenhuma nota cadastrada. Adicione uma acima!
+                        </td>
+                    </tr>
+                `;
+            } else {
+                dados.forEach((item, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="mes">${item.mes}</td>
+                        <td><strong>#${item.numeroNota}</strong></td>
+                        <td><input type="number" class="input-editable" value="${item.produtos}" 
+                                   onchange="atualizarDado(${index}, 'produtos', this.value)" min="0" /></td>
+                        <td><input type="number" class="input-editable" value="${item.servicos}" 
+                                   onchange="atualizarDado(${index}, 'servicos', this.value)" min="0" /></td>
+                        <td>${item.produtos + item.servicos}</td>
+                        <td>R$ ${item.valor.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-danger" onclick="removerLinha(${index})" 
+                                   style="padding: 4px 10px; font-size: 12px;">✕</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            atualizarTotais();
+            atualizarGraficos();
+            atualizarResumo();
+            atualizarNumeroNota();
+        }
+
+        // Atualizar número da nota automaticamente
+        function atualizarNumeroNota() {
+            const proximoNumero = dados.length > 0 ? Math.max(...dados.map(d => d.numeroNota)) + 1 : 1;
+            document.getElementById('numeroNotaInput').value = proximoNumero;
+        }
+
+        // Atualizar um dado específico
+        function atualizarDado(index, campo, valor) {
+            dados[index][campo] = parseInt(valor) || 0;
+            renderizarTabela();
+        }
+
+        // Adicionar nova linha
+        function adicionarLinha() {
+            const mes = document.getElementById('mesSelect').value;
+            const numeroNota = parseInt(document.getElementById('numeroNotaInput').value) || 0;
+            const produtos = parseInt(document.getElementById('produtosInput').value) || 0;
+            const servicos = parseInt(document.getElementById('servicosInput').value) || 0;
+            const valor = parseFloat(document.getElementById('valorInput').value) || 0;
+
+            if (numeroNota === 0) {
+                alert('Por favor, informe o número da nota!');
+                return;
+            }
+
+            // Verificar se o número da nota já existe
+            const existe = dados.some(item => item.numeroNota === numeroNota);
+            if (existe) {
+                alert('Este número de nota já foi cadastrado! Use um número diferente.');
+                return;
+            }
+
+            dados.push({ mes, numeroNota, produtos, servicos, valor });
+            renderizarTabela();
+
+            // Limpar campos (exceto mês e número da nota)
+            document.getElementById('produtosInput').value = '0';
+            document.getElementById('servicosInput').value = '0';
+            document.getElementById('valorInput').value = '';
+            
+            // Atualizar próximo número
+            atualizarNumeroNota();
+        }
+
+        // Remover linha
+        function removerLinha(index) {
+            if (confirm('Remover a nota #' + dados[index].numeroNota + ' - ' + dados[index].mes + '?')) {
+                dados.splice(index, 1);
+                renderizarTabela();
+            }
+        }
+
+        // Limpar todas as linhas
+        function limparTabela() {
+            if (confirm('Limpar todos os dados?')) {
+                dados = [];
+                renderizarTabela();
+                document.getElementById('numeroNotaInput').value = '1';
+            }
+        }
+
+        // Atualizar totais no rodapé
+        function atualizarTotais() {
+            let totalProdutos = 0;
+            let totalServicos = 0;
+            let totalNotas = 0;
+            let totalValor = 0;
+
+            dados.forEach(item => {
+                totalProdutos += item.produtos;
+                totalServicos += item.servicos;
+                totalNotas += item.produtos + item.servicos;
+                totalValor += item.valor;
+            });
+
+            document.getElementById('totalProdutosFoot').textContent = totalProdutos;
+            document.getElementById('totalServicosFoot').textContent = totalServicos;
+            document.getElementById('totalNotasFoot').textContent = totalNotas;
+            document.getElementById('totalValorFoot').textContent = 'R$ ' + totalValor.toFixed(2);
+        }
+
+        // Atualizar resumo
+        function atualizarResumo() {
+            let totalNotas = 0;
+            let totalValor = 0;
+            let totalProdutos = 0;
+            let totalServicos = 0;
+
+            dados.forEach(item => {
+                totalNotas += item.produtos + item.servicos;
+                totalValor += item.valor;
+                totalProdutos += item.produtos;
+                totalServicos += item.servicos;
+            });
+
+            const media = dados.length > 0 ? Math.round(totalNotas / dados.length) : 0;
+
+            document.getElementById('totalNotas').textContent = totalNotas;
+            document.getElementById('totalFaturamento').textContent = 'R$ ' + totalValor.toFixed(2);
+            document.getElementById('totalProdutos').textContent = totalProdutos;
+            document.getElementById('totalServicos').textContent = totalServicos;
+            document.getElementById('totalNotasMes').textContent = media;
+        }
+
+        // Atualizar gráficos
+        function atualizarGraficos() {
+            const mesesOrdenados = meses;
+            
+            // Gráfico de Produtos
+            const chartProdutos = document.getElementById('chartProdutos');
+            chartProdutos.innerHTML = '';
+            
+            const maxProdutos = Math.max(...dados.map(d => d.produtos), 1);
+            
+            mesesOrdenados.forEach(mes => {
+                const dado = dados.find(d => d.mes === mes);
+                const valor = dado ? dado.produtos : 0;
+                const altura = (valor / maxProdutos) * 200;
+                
+                const container = document.createElement('div');
+                container.className = 'bar-container';
+                
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = Math.max(altura, 5) + 'px';
+                bar.style.background = '#1a237e';
+                bar.title = mes + ': ' + valor + ' produtos';
+                
+                const value = document.createElement('div');
+                value.className = 'bar-value';
+                value.textContent = valor;
+                
+                const label = document.createElement('div');
+                label.className = 'bar-label';
+                label.textContent = mes.substring(0, 3);
+                
+                container.appendChild(bar);
+                container.appendChild(value);
+                container.appendChild(label);
+                chartProdutos.appendChild(container);
+            });
+
+            // Gráfico de Serviços
+            const chartServicos = document.getElementById('chartServicos');
+            chartServicos.innerHTML = '';
+            
+            const maxServicos = Math.max(...dados.map(d => d.servicos), 1);
+            
+            mesesOrdenados.forEach(mes => {
+                const dado = dados.find(d => d.mes === mes);
+                const valor = dado ? dado.servicos : 0;
+                const altura = (valor / maxServicos) * 200;
+                
+                const container = document.createElement('div');
+                container.className = 'bar-container';
+                
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = Math.max(altura, 5) + 'px';
+                bar.style.background = '#e65100';
+                bar.title = mes + ': ' + valor + ' serviços';
+                
+                const value = document.createElement('div');
+                value.className = 'bar-value';
+                value.textContent = valor;
+                
+                const label = document.createElement('div');
+                label.className = 'bar-label';
+                label.textContent = mes.substring(0, 3);
+                
+                container.appendChild(bar);
+                container.appendChild(value);
+                container.appendChild(label);
+                chartServicos.appendChild(container);
+            });
+        }
+
+        // Exportar para Excel (CSV)
+        function exportarExcel() {
+            if (dados.length === 0) {
+                alert('Não há dados para exportar!');
+                return;
+            }
+
+            let csv = 'Mês,Nº Nota,Produtos,Serviços,Total Notas,Valor (R$)\n';
+            
+            dados.forEach(item => {
+                csv += `${item.mes},${item.numeroNota},${item.produtos},${item.servicos},${item.produtos + item.servicos},${item.valor.toFixed(2)}\n`;
+            });
+
+            // Adicionar totais
+            let totalProdutos = 0;
+            let totalServicos = 0;
+            let totalNotas = 0;
+            let totalValor = 0;
+
+            dados.forEach(item => {
+                totalProdutos += item.produtos;
+                totalServicos += item.servicos;
+                totalNotas += item.produtos + item.servicos;
+                totalValor += item.valor;
+            });
+
+            csv += `TOTAL,,${totalProdutos},${totalServicos},${totalNotas},${totalValor.toFixed(2)}\n`;
+
+            // Download
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'notas_fiscais_mei_2026.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Inicializar
+        renderizarTabela();
+        atualizarNumeroNota();
+    </script>
+</body>
+</html>

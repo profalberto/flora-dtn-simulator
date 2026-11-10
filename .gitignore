@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Resultados gerados pelas execucoes
+resultados/
+cartas/
+carta_testes/
+logs/
+
+# Testes e ferramentas
+.pytest_cache/
+
+# Cache de tiles e imagens derivadas
+mapa_tiles/
+mapa_tiles_satelite/
+dados_osm/tiles_osm/
+mapa_satelite.png
+carta_nautica*.png
+
+# Projetos e copias locais que nao pertencem a este repositorio
+backup/
+recuperadisk/
+sentinela/
+
+# Arquivos temporarios de trabalho
+scratch_*.py
+temp.py
+ChatGPT Image*.png
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
