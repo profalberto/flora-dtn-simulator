@@ -95,6 +95,8 @@ def main(argv=None):
 
     sementes = [20260826 + i for i in range(args.sementes)]
     os.makedirs(args.saida, exist_ok=True)
+    tabela5_dir = os.path.join(args.saida, "tabela5")
+    tabela6_dir = os.path.join(args.saida, "tabela6")
 
     tarefas = []
     for cenario in CENARIOS:
@@ -102,7 +104,7 @@ def main(argv=None):
             for semente in sementes:
                 cfg = ConfiguracaoDTN(cenario=cenario, protocolo=protocolo,
                                      horizonte_h=args.horizonte, semente=semente)
-                tarefas.append((cfg, args.saida, "movel"))
+                tarefas.append((cfg, tabela6_dir, "movel"))
     for semente in sementes:
         for fixo in (False, True):
             cfg = ConfiguracaoDTN(cenario="C3", protocolo="flora",
@@ -111,11 +113,15 @@ def main(argv=None):
             if fixo:
                 cfg.bundles_por_hora_gateway_movel = 0.0
                 cfg.tipos_gateway_movel = ()
-            tarefas.append((cfg, args.saida, label))
+            tarefas.append((cfg, tabela5_dir, label))
 
     if args.dry_run:
         print(f"dry-run: {len(tarefas)} execucoes planejadas, horizonte={args.horizonte}h")
         return 0
+
+    os.makedirs(tabela5_dir, exist_ok=True)
+    os.makedirs(tabela6_dir, exist_ok=True)
+    os.makedirs(args.saida, exist_ok=True)
 
     inicio = time.perf_counter()
     resultados = []
@@ -206,9 +212,7 @@ def main(argv=None):
     )
 
     # --- Tabela 7 ---
-    registros = [r for r in flora_analise.carregar_registros(
-        [p for p in flora_analise.expandir_caminhos([args.saida])
-         if "_fixo_" not in os.path.basename(p)])
+    registros = [r for r in flora_analise.carregar_registros([tabela6_dir])
                  if _horizonte_igual(r.horizonte, args.horizonte)]
     resultado = flora_analise.analisar(registros, metricas=list(flora_analise.METRICAS_PADRAO),
                                        confianca=0.95)
