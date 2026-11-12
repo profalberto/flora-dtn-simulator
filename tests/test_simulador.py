@@ -668,6 +668,28 @@ def test_epidemico_supera_flora_em_overhead():
     assert flo["overhead_copias"] < epi["overhead_copias"]
 
 
+def test_utilidade_mensagem_monotona_e_prioridade() -> None:
+    cfg = fd.ConfiguracaoDTN()
+    ctx = fd.ContextoRoteamento(fd.construir_supernos(8.0), 0.0)
+    rng = __import__("random").Random(1)
+    no = fd.Embarcacao(0, "PRINCIPAL", fg.CANAL_PRINCIPAL, rng)
+    bd_seg = fd.Bundle(bid="b1", categoria=fd.CAT_SEGURANCA, origem=0,
+                       t_criacao_s=0.0, carga={"km": no.km_atual})
+    bd_rot = fd.Bundle(bid="b2", categoria=fd.CAT_ROTINA, origem=0,
+                       t_criacao_s=0.0, carga={"km": no.km_atual})
+    u_seg = fd.utilidade_mensagem(bd_seg, 0.0, no, ctx, cfg)
+    u_rot = fd.utilidade_mensagem(bd_rot, 0.0, no, ctx, cfg)
+    assert abs(u_seg / u_rot - 10.0) < 1e-9, "omega=10 deve dar 10x"
+
+    bd_velho = fd.Bundle(bid="b3", categoria=fd.CAT_ROTINA, origem=0,
+                          t_criacao_s=-3600.0, carga={"km": no.km_atual})
+    assert fd.utilidade_mensagem(bd_velho, 0.0, no, ctx, cfg) < u_rot
+
+    bd_longe = fd.Bundle(bid="b4", categoria=fd.CAT_ROTINA, origem=0,
+                          t_criacao_s=0.0, carga={"km": no.km_atual + 50.0})
+    assert fd.utilidade_mensagem(bd_longe, 0.0, no, ctx, cfg) < u_rot
+
+
 def test_reprodutibilidade():
     a = _rodar("flora", "C3", 4.0).resumo()
     b = _rodar("flora", "C3", 4.0).resumo()

@@ -89,6 +89,8 @@ def construir_cfg(args) -> "ConfiguracaoDTN":
         campos["perda_sombreamento"] = 0.0
     if getattr(args, "utilidade_legada", False):
         campos["utilidade_legada"] = True
+    if getattr(args, "politica_utilidade", None) is not None:
+        campos["politica_utilidade"] = args.politica_utilidade
     return ConfiguracaoDTN(**campos)
 
 
@@ -120,6 +122,8 @@ def argumentos_comuns(parser: argparse.ArgumentParser) -> None:
                         help="desliga a perda por sombreamento do enlace")
     parser.add_argument("--utilidade-legada", action="store_true",
                         help="preserva o comportamento anterior da utilidade (prioridade cancela)")
+    parser.add_argument("--politica-utilidade", choices=("no", "mensagem"), default="no",
+                        help="politica de utilidade do FLoRA (padrao: no)")
     parser.add_argument("--dry-run", action="store_true",
                         help="validacao rapida: 0.1 h, semente 20260826, sem gravar arquivos")
 

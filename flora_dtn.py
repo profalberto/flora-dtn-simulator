@@ -127,6 +127,7 @@ class ConfiguracaoDTN:
     # espacial ficava praticamente constante: o FLoRA degenerava em inundacao.
     utilidade_alpha: float = 1.0
     utilidade_sigma_d_km: float = 30.0
+    utilidade_sigma_p_km: float = 30.0
     utilidade_sigma_t_h: float = 12.0
     limiar_utilidade: float = 0.50
     #: O vizinho tem de ser pelo menos 20% mais util que quem detem o bundle.
@@ -136,6 +137,8 @@ class ConfiguracaoDTN:
     fator_retencao: float = 1.20
     #: Preserva o comportamento anterior da utilidade (prioridade cancela).
     utilidade_legada: bool = False
+    #: Politica de utilidade: "no" (heuristica por no, padrao) ou "mensagem" (Eq. 10).
+    politica_utilidade: str = "no"
 
     # -- parametros do spray-and-wait --
     copias_spray: int = 2
@@ -198,7 +201,14 @@ class Bundle:
     carga: dict
     saltos: int = 0
     copias: int = 1
+    ttl_s: float | None = None
     t_primeira_entrega_s: float | None = None
+
+    @property
+    def ttl(self) -> float:
+        if self.ttl_s is not None:
+            return self.ttl_s
+        return TTL_PADRAO_S[self.categoria]
 
     @property
     def prioridade(self) -> int:
@@ -212,7 +222,7 @@ class Bundle:
         return max(0.0, (t_s - self.t_criacao_s) / 3600.0)
 
     def expirado(self, t_s: float) -> bool:
-        return (t_s - self.t_criacao_s) > TTL_PADRAO_S[self.categoria]
+        return (t_s - self.t_criacao_s) > self.ttl
 
     def descricao(self) -> str:
         c = self.carga
@@ -230,6 +240,7 @@ class Bundle:
             carga=dict(self.carga),
             saltos=saltos,
             copias=copias,
+            ttl_s=self.ttl_s,
             t_primeira_entrega_s=self.t_primeira_entrega_s,
         )
 
@@ -315,9 +326,34 @@ def ganho_relativo_bundle(
     )
 
 
-# ===========================================================================
-# 5. PROTOCOLOS
-# ===========================================================================
+def utilidade_mensagem(
+    bundle: Bundle, t_s: float, no, ctx: ContextoRoteamento, cfg: ConfiguracaoDTN,
+    d_p_km: float | None = None,
+) -> float:
+    """
+    U(b | R, p) = kappa * omega(b) * exp(-d_R/sigma_d) * exp(-d_p/sigma_p) * exp(-a/sigma_t)
+
+    Utilidade por mensagem (Eq. 10 do artigo). d_R e a distancia do bundle a
+    rota planejada (proxy: eixo do canal); d_p e a distancia entre a posicao
+    atual do no e a localizacao do dado; a e a idade em horas; omega e o peso
+    de prioridade (10 para seguranca, 1 para rotina).
+    """
+    kappa = cfg.utilidade_alpha
+    omega = bundle.prioridade
+    d_R = ctx.distancia_ate_roteiro_km(no)
+    if d_p_km is None:
+        d_p_km = abs(getattr(no, "km_atual", 0.0) - bundle.carga.get("km", 0.0))
+    a = bundle.idade_h(t_s)
+    sigma_d = max(cfg.utilidade_sigma_d_km, 1e-6)
+    sigma_p = max(cfg.utilidade_sigma_p_km, 1e-6)
+    sigma_t = max(cfg.utilidade_sigma_t_h, 1e-6)
+    return (
+        kappa
+        * omega
+        * math.exp(-d_R / sigma_d)
+        * math.exp(-d_p_km / sigma_p)
+        * math.exp(-a / sigma_t)
+    )
 class ProtocoloDTN:
     nome = "base"
     descricao = ""
@@ -426,6 +462,25 @@ class ProtocoloFLoRA(ProtocoloDTN):
     def decidir(self, frota, vizinhos, t_s, ctx):
         cfg = self.cfg
         decisoes: dict[tuple[int, int], list[Bundle]] = {}
+        if cfg.politica_utilidade == "mensagem":
+            for i, no in enumerate(frota):
+                alvos = vizinhos.get(i, ())
+                if not alvos:
+                    continue
+                for bd in no.buffer.values():
+                    if bd.expirado(t_s):
+                        continue
+                    candidatos = []
+                    for j in alvos:
+                        alvo = frota[j]
+                        u_dest = utilidade_mensagem(bd, t_s, alvo, ctx, cfg)
+                        u_origem = utilidade_mensagem(bd, t_s, no, ctx, cfg)
+                        if u_dest > cfg.limiar_utilidade and u_dest > cfg.fator_retencao * u_origem:
+                            candidatos.append((u_dest, j))
+                    if candidatos:
+                        candidatos.sort(reverse=True)
+                        decisoes.setdefault((i, candidatos[0][1]), []).append(bd)
+            return decisoes
         if cfg.utilidade_legada:
             for i, no in enumerate(frota):
                 alvos = vizinhos.get(i, ())
@@ -1837,22 +1892,11 @@ class MotorDTN:
         for no in self.frota:
             no.buffer[bd.bid] = bd
             no.marcar_recebido(bd.bid)
-        """
-        Coleta por cobertura de gateway.
 
-        Toda entrega ao superno custa um uplink LoRa completo (airtime, energia
-        e duty cycle da embarcacao), igual a um repasse entre embarcacoes. E o
-        que torna TED e overhead compativeis com a fisica do enlace.
-
-        Num gateway movel ha ainda a cota do terminal de backhaul. O que nao
-        couber nela permanece a bordo da embarcacao e pode ser servido no
-        proximo passo, ou mais adiante por outro terminal: e a fila de subida,
-        e nao perda de leitura.
-        """
+    def _drenar_supernos(self, ctx: ContextoRoteamento) -> None:
         com_cobertura = 0
         for no in self.frota:
             self.metricas.nos_expirados += no.expirar(self.t_s)
-            # a distancia ao eixo nao depende do superno: calcula-se uma vez
             d_eixo = ctx.d_eixo_km(no)
             alcancado = False
             for sn in self.supernos:
@@ -1870,15 +1914,10 @@ class MotorDTN:
                         continue
                     sn.aguardando_cota = max(0, len(candidatos) - int(sn._cota))
                     if sn._cota < 1.0:
-                        # terminal sem cota livre neste passo: nada sobe
                         continue
-                    # primeiro os bundles ja entregues, para nao gastar taxa com
-                    # upload que so contaria como redundante
                     candidatos.sort(key=lambda b: b.bid in self._entregues)
                     quota = min(len(candidatos), int(sn._cota))
                     candidatos = candidatos[:quota]
-                    # a cota so e descontada quando a transmissao efetivamente
-                    # ocorrer, em _uplicar_ao_gateway
                 for bd in candidatos:
                     self._uplicar_ao_gateway(no, bd, sn)
             com_cobertura += 1 if alcancado else 0
@@ -1954,42 +1993,6 @@ class MotorDTN:
         self._entregues.add(bd.bid)
         self.metricas.registrar_entrega(bd, self.t_s)
 
-    def _drenar_supernos(self, ctx: ContextoRoteamento) -> None:
-        com_cobertura = 0
-        for no in self.frota:
-            self.metricas.nos_expirados += no.expirar(self.t_s)
-            d_eixo = ctx.d_eixo_km(no)
-            alcancado = False
-            for sn in self.supernos:
-                if not sn.em_alcance(no, d_eixo):
-                    no.gateways_em_contato.discard(sn.chave)
-                    continue
-                alcancado = True
-                if not self.protocolo.upload_gateway:
-                    no.gateways_em_contato.add(sn.chave)
-                    continue
-                candidatos = sn.drenar(no, self.t_s)
-                if sn.movel:
-                    if not candidatos:
-                        sn.aguardando_cota = 0
-                        continue
-                    sn.aguardando_cota = max(0, len(candidatos) - int(sn._cota))
-                    if sn._cota < 1.0:
-                        continue
-                    candidatos.sort(key=lambda b: b.bid in self._entregues)
-                    quota = min(len(candidatos), int(sn._cota))
-                    candidatos = candidatos[:quota]
-                for bd in candidatos:
-                    self._uplicar_ao_gateway(no, bd, sn)
-            com_cobertura += 1 if alcancado else 0
-        if self.frota:
-            pct = 100.0 * com_cobertura / len(self.frota)
-            self.metricas.cobertura_instantanea_percentual = pct
-            self.metricas._soma_cobertura += pct
-            self.metricas._amostras_cobertura += 1
-            self.metricas.cobertura_instantanea_media = (
-                self.metricas._soma_cobertura / self.metricas._amostras_cobertura
-            )
 
     def _processar_encontros(self, ctx: ContextoRoteamento) -> None:
         """
