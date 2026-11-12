@@ -25,6 +25,9 @@ import argparse
 import os
 import sys
 
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -196,6 +199,21 @@ def figura9_custo_transbordo(caminho: str) -> str:
     return caminho
 
 
+def capturar_simulacao(caminho: str, cenario: str, t_h: float = 168.0) -> str:
+    """Captura a carta náutica do simulador em 300 dpi."""
+    from flora_dtn import ConfiguracaoDTN, MotorDTN
+    from flora_mapa import CartaNautica, OpcoesCarta
+
+    cfg = ConfiguracaoDTN(cenario=cenario, protocolo="flora",
+                          horizonte_h=t_h, semente=20260826)
+    motor = MotorDTN(cfg).executar(t_h)
+    opcoes = OpcoesCarta(escala=2.0, nx=520, ny=312)
+    carta = CartaNautica(opcoes)
+    img = carta.render(motor.cenario, t_h, motor=motor)
+    carta.salvar(img, caminho, dpi=300)
+    return caminho
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Gera os gráficos 7, 8 e 9 do artigo FLoRA.")
     ap.add_argument("--saida", "-o", default=os.path.join(RAIZ, "artigo", "figuras"),
@@ -207,6 +225,9 @@ def main(argv: list[str] | None = None) -> int:
     geradas.append(figura7_niveis_rio(os.path.join(args.saida, "figura7_niveis_rio.png")))
     geradas.append(figura8_tempo_viagem(os.path.join(args.saida, "figura8_tempo_viagem.png")))
     geradas.append(figura9_custo_transbordo(os.path.join(args.saida, "figura9_custo_transbordo.png")))
+    for codigo in ("C1", "C2", "C3"):
+        geradas.append(capturar_simulacao(
+            os.path.join(args.saida, f"simulacao_{codigo}.png"), codigo))
 
     for caminho in geradas:
         tamanho = os.path.getsize(caminho) / 1024
