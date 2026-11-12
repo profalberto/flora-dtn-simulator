@@ -33,6 +33,14 @@ executar o simulador:
 python dtn_simulador.py analisar -e exemplos
 ```
 
+## Novidades da versao 1.4.0
+
+* Politica de utilidade por mensagem (`--politica-utilidade mensagem`) implementando a Eq. (10) do artigo, com `--utilidade-legada` preservando o comportamento anterior;
+* TTL configuravel por tipo de bundle (seguranca/rotina) e buffer finito por utilidade;
+* IDTU rigoroso com denominador de embarcacoes expostas, lead distance e antecedencia;
+* Novas classes de embarcacao (NAVIO_OCEANICO, COMBOIO, REGIONAL) e protocolos (oficial, slp_moveis, satelite, flora_perigo);
+* Cenario S26 (seca 2026) com fonte declarada.
+
 ## Novidades da versao 1.1.0
 
 * `--version` imprime a versao e o commit, e o banner de abertura aparece em
