@@ -30,7 +30,7 @@ NOME = "FLoRA-DTN"
 #: Versao semantica. A regra e: funcionalidade nova sobe o minor; correcao de
 #: comportamento sobe o patch; mudanca incompativel de CLI ou de CSV sobe o
 #: major.
-VERSAO = "1.1.1"
+VERSAO = "1.2.0"
 
 RAIZ = os.path.dirname(os.path.abspath(__file__))
 
