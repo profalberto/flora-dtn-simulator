@@ -102,6 +102,7 @@ class ConfiguracaoDTN:
     composicao_frota: dict[str, int] = field(
         default_factory=lambda: {"PRINCIPAL": 4, "LANCHA": 6, "RIBEIRINHO": 5}
     )
+    densidade_frota: str | None = None
 
     #: Multiplicador do alcance nominal de cada perfil LoRa. O legado usava
     #: 95 px == 18,5 km, acima dos 15 km declarados no artigo.
@@ -623,6 +624,27 @@ def construir_supernos(alcance_km: float) -> list[SuperNo]:
     ]
 
 
+def construir_frota(cfg: "ConfiguracaoDTN") -> list["Embarcacao"]:
+    """Monta a frota padrao a partir da composicao/densidade, com a semente de cfg."""
+    composicao = cfg.composicao_frota
+    if getattr(cfg, "densidade_frota", None):
+        composicao = composicao_por_densidade(cfg.densidade_frota, composicao)
+    rng = random.Random(cfg.semente)
+    frota: list["Embarcacao"] = []
+    id_no = 0
+    for tipo, quantidade in composicao.items():
+        for _ in range(quantidade):
+            frota.append(Embarcacao(id_no, tipo, CANAL_PRINCIPAL, rng))
+            id_no += 1
+    return frota
+    from flora_geometria import ancorar_cidades
+
+    return [
+        SuperNo(chave, nome, canal, km, alcance_km)
+        for chave, nome, canal, km, _desvio in ancorar_cidades()
+    ]
+
+
 def construir_supernos_moveis(frota, cfg: "ConfiguracaoDTN") -> list[SuperNo]:
     """
     Um gateway movel por embarcacao do tipo configurado em `tipos_gateway_movel`.
@@ -642,7 +664,28 @@ def construir_supernos_moveis(frota, cfg: "ConfiguracaoDTN") -> list[SuperNo]:
     ]
 
 
-def construir_frota(cfg: "ConfiguracaoDTN") -> list["Embarcacao"]:
+DENSIDADES_FROTA: dict[str, int] = {
+    "muito_baixa": 3, "baixa": 7, "media": 14, "alta": 28, "muito_alta": 42,
+}
+
+
+def composicao_por_densidade(densidade: str,
+                            base: dict[str, int] | None = None) -> dict[str, int]:
+    base = base or {"PRINCIPAL": 4, "LANCHA": 6, "RIBEIRINHO": 5}
+    alvo = DENSIDADES_FROTA.get(densidade, sum(base.values()))
+    total_base = sum(base.values()) or 1
+    fator = alvo / total_base
+    resultado = {t: max(1, round(q * fator)) for t, q in base.items()}
+    # ajusta para bater o alvo
+    while sum(resultado.values()) < alvo:
+        resultado[max(resultado, key=lambda t: base[t])] += 1
+    while sum(resultado.values()) > alvo and len(resultado) > 1:
+        t = max(resultado, key=lambda t: resultado[t])
+        if resultado[t] > 1:
+            resultado[t] -= 1
+        else:
+            break
+    return resultado
     """Monta a frota padrao a partir da composicao, com a semente de ``cfg``."""
     rng = random.Random(cfg.semente)
     frota: list["Embarcacao"] = []
@@ -864,6 +907,7 @@ class Embarcacao:
         self.bundles_expulsos = 0
         self.bundles_descartados = 0
         self.transmitidos = 0
+        self.t_chegada_km_critico: float | None = None
         self.recebidos = 0
         self.saltos_totais = 0
         self.transmitiu_ao_gateway = 0
@@ -1083,6 +1127,9 @@ class Metricas:
         self.nos_expirados = 0
         self.serie_ted: list[tuple[float, float]] = []
         self.serie_lpa: list[tuple[float, float]] = []
+        self.serie_idtu: list[tuple[float, float]] = []
+        self.idtu_soma: float = 0.0
+        self.idtu_n: int = 0
 
     def registrar_criacao(self, bd: Bundle, no_id: int) -> None:
         self.bundles_criados += 1
@@ -1271,6 +1318,7 @@ class MotorDTN:
         self.cenario: CenarioHidrologico = obter_cenario(cfg.cenario)
         self.protocolo: ProtocoloDTN = criar_protocolo(cfg)
         self.t_s = 0.0
+        self.km_trecho_critico: float | None = {"C1": None, "C2": 155.0, "C3": 170.0}.get(cfg.cenario)
         self._seq_bundle = 0
         #: Bundle ids que ja chegaram a internet. Uma copia duplicada que
         #: chega depois conta como upload redundante (custo de overhead), nunca
@@ -1301,9 +1349,14 @@ class MotorDTN:
 
     # -- construcao ----------------------------------------------------
     def _construir_frota(self) -> list[Embarcacao]:
+        from flora_dtn import composicao_por_densidade
+        composicao = self.cfg.composicao_frota
+        if getattr(self.cfg, "densidade_frota", None):
+            composicao = composicao_por_densidade(
+                self.cfg.densidade_frota, composicao)
         frota: list[Embarcacao] = []
         id_no = 0
-        for tipo, quantidade in self.cfg.composicao_frota.items():
+        for tipo, quantidade in composicao.items():
             for _ in range(quantidade):
                 frota.append(Embarcacao(id_no, tipo, CANAL_PRINCIPAL, self.rng))
                 id_no += 1
@@ -1482,6 +1535,10 @@ class MotorDTN:
             no.t_s = self.t_s
             no.abrir_janela_duty(self.t_s)
             no.mover(self._dt(), self.cenario)
+            if (self.km_trecho_critico is not None
+                    and no.t_chegada_km_critico is None
+                    and no.km_atual >= self.km_trecho_critico):
+                no.t_chegada_km_critico = self.t_s
         d_eixo = self._distancias_ao_eixo()
         self._atualizar_hidrologia(d_eixo)
         for no in self.frota:
@@ -1637,6 +1694,20 @@ class MotorDTN:
         if bd.bid in self._entregues:
             self.metricas.uploads_redundantes += 1
             return
+        # IDTU: informacao disponivel em tempo util
+        t_rec = self.t_s
+        km_crit = self.km_trecho_critico
+        if km_crit is None:
+            idtu = 1.0
+        else:
+            t_arr = no.t_chegada_km_critico
+            if t_arr is None:
+                idtu = 0.0
+            else:
+                idtu = 1.0 if (t_rec + 0.5 * 3600.0 < t_arr
+                               and (t_rec - bd.t_criacao_s) <= 6.0 * 3600.0) else 0.0
+        self.metricas.idtu_soma += idtu
+        self.metricas.idtu_n += 1
         self._entregues.add(bd.bid)
         self.metricas.registrar_entrega(bd, self.t_s)
 
@@ -1786,6 +1857,8 @@ class MotorDTN:
         m.serie_ted.append((t_h, m.ted))
         if m.latencias_s:
             m.serie_lpa.append((t_h, sum(m.latencias_s) / len(m.latencias_s) / 60.0))
+        if m.idtu_n:
+            m.serie_idtu.append((t_h, (m.idtu_soma / m.idtu_n) * 100.0))
 
     # -- execucao ------------------------------------------------------
     def executar(self, horizonte_h: float | None = None, progresso=None) -> "MotorDTN":
@@ -1820,6 +1893,8 @@ class MotorDTN:
             "energia_media_por_no_mJ": round(
                 sum(no.energia_j for no in self.frota) / max(1, len(self.frota)) * 1000.0, 2
             ),
+            "idtu_media": round(m.idtu_soma / m.idtu_n, 4) if m.idtu_n else None,
+            "idtu_n": m.idtu_n,
         })
         return dados
 
@@ -1922,10 +1997,27 @@ class MotorDTN:
                 "commit": resolver_commit(),
             },
             "resumo": self.resumo(),
+            "resultados_simulados": {
+                "proveniencia": "simulado",
+                "ted_percentual": self.resumo().get("ted_percentual"),
+                "lpa_minutos": self.resumo().get("lpa_minutos"),
+                "car_percentual": self.resumo().get("car_percentual"),
+                "tci_horas": self.resumo().get("tci_horas"),
+                "overhead_copias": self.resumo().get("overhead_copias"),
+                "transmissoes": self.resumo().get("transmissoes"),
+                "energia_total_j": self.resumo().get("energia_total_j"),
+                "idtu_media": self.resumo().get("idtu_media"),
+                "idtu_n": self.resumo().get("idtu_n"),
+            },
+            "cenarios_ilustrativos": {
+                "proveniencia": "estimado",
+                "nota": "Valores ilustrativos (nao simulados): tempo de viagem, custo e transbordo por regime hidrologico.",
+            },
             "configuracao": asdict(self.cfg),
             "cenario": {
                 "codigo": self.cenario.codigo,
                 "nome": self.cenario.nome,
+                "fonte": self.cenario.fonte,
                 "nivel_rio_final_m": round(
                     self.cenario.nivel_rio_m(self.t_s / 3600.0), 3),
                 "obstaculos_ativos": len(
@@ -1939,6 +2031,7 @@ class MotorDTN:
                 "ted": [[round(h, 3), round(v, 3)] for h, v in m.serie_ted],
                 "lpa_minutos": [[round(h, 3), round(v, 3)]
                                 for h, v in m.serie_lpa],
+                "idtu": [[round(h, 3), round(v, 3)] for h, v in m.serie_idtu],
             },
             "amostras": {
                 "latencias_s": [round(v, 2) for v in m.latencias_s],

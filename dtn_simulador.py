@@ -38,6 +38,7 @@ O modo headless nao inicializa o pygame, de modo que roda em servidor.
 from __future__ import annotations
 
 import argparse
+import csv
 import logging
 import os
 import sys
@@ -225,6 +226,8 @@ def construir_parser() -> argparse.ArgumentParser:
                      help="pasta de saida (padrao: resultados/artigo)")
     art.add_argument("--trabalhadores", type=int, default=None, metavar="N",
                      help="numero de processos (padrao: ate 8)")
+    art.add_argument("--densidades", default="media",
+                     help="densidades de frota separadas por virgula (padrao: media)")
     return p
 
 
@@ -471,7 +474,7 @@ def _horizonte_igual(texto: str, alvo: float) -> bool:
 
 def modo_analisar(args) -> int:
     from flora_analise import (METRICAS_PADRAO, analisar, carregar_registros,
-                               expandir_caminhos, salvar, tabela_texto,
+                               expandir_caminhos, gerar_diferencas, salvar, tabela_texto,
                                validar_consistencia)
 
     log = flora_log.obter_logger("analisar")
@@ -526,6 +529,16 @@ def modo_analisar(args) -> int:
     if getattr(args, "dry_run", False):
         print("  (dry-run: nenhum arquivo gravado)")
         return 0
+    # IC95% da diferenca pareada entre protocolos
+    difs = gerar_diferencas(registros, metricas or METRICAS_PADRAO, args.confianca)
+    if difs:
+        caminho_dif = os.path.join(pasta, "analise_estatistica_diferencas.csv")
+        os.makedirs(pasta, exist_ok=True)
+        with open(caminho_dif, "w", newline="", encoding="utf-8-sig") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(difs[0].keys()))
+            w.writeheader()
+            w.writerows(difs)
+        print(f"  gravado: {caminho_dif}")
     for caminho in salvar(resultado, pasta):
         print(f"  gravado: {caminho}")
         log.info("gravado: %s", caminho)
@@ -554,6 +567,8 @@ def modo_artigo(args) -> int:
             "--saida", args.saida]
     if getattr(args, "trabalhadores", None):
         argv += ["--trabalhadores", str(args.trabalhadores)]
+    if getattr(args, "densidades", None):
+        argv += ["--densidades", str(args.densidades)]
     if getattr(args, "dry_run", False):
         argv.append("--dry-run")
     print(f"Gerando tabelas do artigo | sementes={args.sementes} | "

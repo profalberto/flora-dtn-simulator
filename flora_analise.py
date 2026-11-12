@@ -424,6 +424,55 @@ def comparar_protocolos(
 # ---------------------------------------------------------------------------
 # 4. HOLM
 # ---------------------------------------------------------------------------
+def ic95_diferenca_pareada(a: Sequence[float], b: Sequence[float],
+                           confianca: float = 0.95) -> tuple[float, float, float]:
+    """Media e IC95% da diferenca pareada a - b (Student t)."""
+    diffs = [x - y for x, y in zip(a, b)]
+    media = statistics.fmean(diffs) if diffs else 0.0
+    if len(diffs) < 2:
+        return media, media, media
+    desvio = statistics.stdev(diffs)
+    try:
+        from scipy import stats as st
+        tc = st.t.ppf((1 + confianca) / 2.0, len(diffs) - 1)
+    except Exception:
+        tc = 1.96
+    margem = tc * desvio / (len(diffs) ** 0.5)
+    return media, media - margem, media + margem
+
+
+def gerar_diferencas(registros: Sequence[Registro], metricas: Sequence[str],
+                     confianca: float = 0.95) -> list[dict]:
+    """IC95% da diferenca pareada entre protocolos, por metrica."""
+    linhas = []
+    protocolos = sorted({r.protocolo for r in registros})
+    for metrica in metricas:
+        por_proto = {}
+        for r in registros:
+            v = r.valores.get(metrica)
+            if v is not None:
+                por_proto.setdefault(r.protocolo, {})[
+                    f"{r.cenario}|{r.semente}|{r.horizonte}"] = v
+        for i, a in enumerate(protocolos):
+            for b in protocolos[i + 1:]:
+                chaves = set(por_proto.get(a, {})) & set(por_proto.get(b, {}))
+                if len(chaves) < 2:
+                    continue
+                va = [por_proto[a][k] for k in sorted(chaves)]
+                vb = [por_proto[b][k] for k in sorted(chaves)]
+                media, inf, sup = ic95_diferenca_pareada(va, vb, confianca)
+                linhas.append({
+                    "metrica": metrica,
+                    "protocolo_a": a,
+                    "protocolo_b": b,
+                    "media_dif": round(media, 4),
+                    "ic95_inf": round(inf, 4),
+                    "ic95_sup": round(sup, 4),
+                    "n_blocos": len(chaves),
+                })
+    return linhas
+
+
 def holm(pvalores: Sequence[float | None]) -> list[float | None]:
     """
     Correcao de Holm-Bonferroni, preservando a ordem original.

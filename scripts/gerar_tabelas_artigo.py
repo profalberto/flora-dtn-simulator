@@ -91,12 +91,16 @@ def main(argv=None):
     parser.add_argument("--saida", default=os.path.join(RAIZ, "resultados", "artigo"))
     parser.add_argument("--trabalhadores", type=int, default=None)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--densidades", default="media",
+                        help="densidades de frota separadas por virgula")
     args = parser.parse_args(argv)
 
     sementes = [20260826 + i for i in range(args.sementes)]
     os.makedirs(args.saida, exist_ok=True)
     tabela5_dir = os.path.join(args.saida, "tabela5")
     tabela6_dir = os.path.join(args.saida, "tabela6")
+    tabela9_dir = os.path.join(args.saida, "tabela9")
+    densidades = [d.strip() for d in args.densidades.split(",") if d.strip()]
 
     tarefas = []
     for cenario in CENARIOS:
@@ -115,12 +119,22 @@ def main(argv=None):
                 cfg.tipos_gateway_movel = ()
             tarefas.append((cfg, tabela5_dir, label))
 
+    # Tabela 9: densidade de frota (C2)
+    for densidade in densidades:
+        for protocolo in PROTOCOLOS:
+            for semente in sementes:
+                cfg = ConfiguracaoDTN(cenario="C2", protocolo=protocolo,
+                                     horizonte_h=args.horizonte, semente=semente,
+                                     densidade_frota=densidade)
+                tarefas.append((cfg, tabela9_dir, densidade))
+
     if args.dry_run:
         print(f"dry-run: {len(tarefas)} execucoes planejadas, horizonte={args.horizonte}h")
         return 0
 
     os.makedirs(tabela5_dir, exist_ok=True)
     os.makedirs(tabela6_dir, exist_ok=True)
+    os.makedirs(tabela9_dir, exist_ok=True)
     os.makedirs(args.saida, exist_ok=True)
 
     inicio = time.perf_counter()
@@ -211,7 +225,45 @@ def main(argv=None):
         linhas6,
     )
 
-    # --- Tabela 7 ---
+    # --- Tabela 8 (IDTU) ---
+    grupos8 = {}
+    for cenario, protocolo, semente, config, resumo in resultados:
+        if config != "movel":
+            continue
+        grupos8.setdefault((cenario, protocolo), []).append(resumo)
+    linhas8 = []
+    for cenario in CENARIOS:
+        for protocolo in PROTOCOLOS:
+            rs = grupos8.get((cenario, protocolo), [])
+            if not rs:
+                continue
+            vals = [r.get("idtu_media") for r in rs if r.get("idtu_media") is not None]
+            idtu_n = round(_media([r.get("idtu_n", 0) for r in rs]), 0)
+            if vals:
+                inf, sup = _ic95(vals)
+            else:
+                inf, sup = None, None
+            linhas8.append([
+                cenario,
+                protocolo,
+                round(_media(vals), 4) if vals else None,
+                round(__import__("statistics").stdev(vals), 4) if len(vals) >= 2 else 0.0,
+                (round(inf, 4) if inf is not None else None),
+                (round(sup, 4) if sup is not None else None),
+                int(idtu_n),
+            ])
+    _escrita_csv(
+        os.path.join(args.saida, "tabela8_idtu.csv"),
+        ["cenario", "protocolo", "idtu_media", "idtu_desvio",
+         "idtu_ic95_inf", "idtu_ic95_sup", "idtu_n"],
+        linhas8,
+    )
+    _latex_tabela(
+        os.path.join(args.saida, "tabela8_idtu.tex"),
+        "IDTU por cenario e protocolo (%gh, %d sementes)" % (args.horizonte, args.sementes),
+        ["Cenario", "Protocolo", "IDTU med.", "Desvio", "IC95 inf", "IC95 sup", "n"],
+        linhas8,
+    )
     registros = [r for r in flora_analise.carregar_registros([tabela6_dir])
                  if _horizonte_igual(r.horizonte, args.horizonte)]
     resultado = flora_analise.analisar(registros, metricas=list(flora_analise.METRICAS_PADRAO),
@@ -241,9 +293,43 @@ def main(argv=None):
         linhas7,
     )
 
+    # --- Tabela 9 (densidade) ---
+    grupos9 = {}
+    for cenario, protocolo, semente, config, resumo in resultados:
+        if cenario != "C2":
+            continue
+        grupos9.setdefault((config, protocolo), []).append(resumo)
+    linhas9 = []
+    for densidade in densidades:
+        for protocolo in PROTOCOLOS:
+            rs = grupos9.get((densidade, protocolo), [])
+            if not rs:
+                continue
+            linhas9.append([
+                densidade,
+                protocolo,
+                round(_media([r["ted_percentual"] for r in rs]), 1),
+                round(_media([r["idtu_media"] for r in rs if r.get("idtu_media") is not None]), 4) if any(r.get("idtu_media") is not None for r in rs) else None,
+                round(_media([r["overhead_copias"] for r in rs if r.get("overhead_copias") is not None]), 2) if any(r.get("overhead_copias") is not None for r in rs) else None,
+                round(_media([r["transmissoes"] for r in rs]), 0),
+            ])
+    _escrita_csv(
+        os.path.join(args.saida, "tabela9_densidade.csv"),
+        ["densidade", "protocolo", "TED%", "IDTU", "overhead", "transmissoes"],
+        linhas9,
+    )
+    _latex_tabela(
+        os.path.join(args.saida, "tabela9_densidade.tex"),
+        "Sensibilidade a densidade de frota (C2, %gh, %d sementes)" % (args.horizonte, args.sementes),
+        ["Densidade", "Protocolo", "TED (\\%)", "IDTU", "Overhead", "Tx"],
+        linhas9,
+    )
+
     print("arquivos gerados em", args.saida)
     for nome in ("tabela5_gateways.csv", "tabela5.tex", "tabela6_protocolos.csv",
-                 "tabela6.tex", "tabela7_estatistica.csv", "tabela7.tex"):
+                 "tabela6.tex", "tabela7_estatistica.csv", "tabela7.tex",
+                 "tabela8_idtu.csv", "tabela8_idtu.tex",
+                 "tabela9_densidade.csv", "tabela9_densidade.tex"):
         print("  ", nome)
 
 

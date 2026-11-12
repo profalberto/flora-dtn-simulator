@@ -247,6 +247,7 @@ class CenarioHidrologico:
     codigo: str
     nome: str
     descricao: str
+    fonte: str = ""
     nivel_referencia_m: float = 0.0
     rebaixamento_m: float = 0.0
     variacao_diurna_m: float = 0.35
@@ -415,11 +416,13 @@ CENARIOS: dict[str, CenarioHidrologico] = {
         codigo="C1",
         nome="Normal",
         descricao="Nivel hidrologico de referencia; sem obstaculos mapeados.",
+        fonte="Nivel de referencia sintetico (calibrado para o experimento)",
     ),
     "C2": CenarioHidrologico(
         codigo="C2",
         nome="Vazante",
         descricao="Nivel 8 m abaixo da referencia; 12 baixios sazonais expostos.",
+        fonte="Reducao de 8 m calibrada a partir de [fonte]; 12 baixios sinteticos distribuidos entre km 12 e 155",
         rebaixamento_m=-8.0,
         obstaculos=_baixios_vazante(),
     ),
@@ -427,6 +430,7 @@ CENARIOS: dict[str, CenarioHidrologico] = {
         codigo="C3",
         nome="Terra Caida",
         descricao="Desmoronamento no km 170 no dia 3; leito passa de 15 m a 2,5 m.",
+        fonte="Desmoronamento sintetico no km 170, ativacao em 72 h",
         variacao_diurna_m=0.5,
         obstaculos=[_terra_caida()],
     ),
