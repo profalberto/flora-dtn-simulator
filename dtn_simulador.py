@@ -52,6 +52,8 @@ import flora_log
 import flora_versao
 
 PROTOCOLOS = ("epidemico", "spray", "flora", "slp", "sc")
+PROTOCOLOS_V13 = ("sc", "oficial", "slp", "slp_moveis", "satelite", "epidemico",
+                  "spray", "flora", "flora_perigo")
 CENARIOS = ("C1", "C2", "C3")
 
 
@@ -85,6 +87,8 @@ def construir_cfg(args) -> "ConfiguracaoDTN":
     campos.update({k: v for k, v in opcionais.items() if v is not None})
     if args.sem_sombreamento:
         campos["perda_sombreamento"] = 0.0
+    if getattr(args, "utilidade_legada", False):
+        campos["utilidade_legada"] = True
     return ConfiguracaoDTN(**campos)
 
 
@@ -114,6 +118,8 @@ def argumentos_comuns(parser: argparse.ArgumentParser) -> None:
                         help="copias por origem no spray-and-wait")
     parser.add_argument("--sem-sombreamento", action="store_true",
                         help="desliga a perda por sombreamento do enlace")
+    parser.add_argument("--utilidade-legada", action="store_true",
+                        help="preserva o comportamento anterior da utilidade (prioridade cancela)")
     parser.add_argument("--dry-run", action="store_true",
                         help="validacao rapida: 0.1 h, semente 20260826, sem gravar arquivos")
 

@@ -654,9 +654,12 @@ def test_invariantes_do_motor():
 
 
 def test_baselines_nao_repassam_entre_embarcacoes():
-    for p in ("slp", "sc"):
-        r = _rodar(p, horas=3.0).resumo()
-        assert r["overhead_copias"] == 1.0, f"{p} deveria ter overhead 1.0"
+    # slp faz upload direto, sem relay: overhead 1.0
+    r = _rodar("slp", horas=3.0).resumo()
+    assert r["overhead_copias"] == 1.0, "slp deveria ter overhead 1.0"
+    # sc nao faz upload nem relay: nenhuma entrega
+    r2 = _rodar("sc", horas=3.0).resumo()
+    assert r2["entregues_total"] == 0, "sc nao deve entregar bundles"
 
 
 def test_epidemico_supera_flora_em_overhead():

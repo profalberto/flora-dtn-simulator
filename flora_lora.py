@@ -127,6 +127,9 @@ PERFIS_POR_TIPO: dict[str, ParametrosLora] = {
     "PRINCIPAL": ParametrosLora(sf=7, potencia_tx_w=0.100),
     "LANCHA": ParametrosLora(sf=9, potencia_tx_w=0.062),
     "RIBEIRINHO": ParametrosLora(sf=10, potencia_tx_w=0.025),
+    "NAVIO_OCEANICO": ParametrosLora(sf=7, potencia_tx_w=0.150),
+    "COMBOIO": ParametrosLora(sf=8, potencia_tx_w=0.080),
+    "REGIONAL": ParametrosLora(sf=9, potencia_tx_w=0.050),
 }
 
 

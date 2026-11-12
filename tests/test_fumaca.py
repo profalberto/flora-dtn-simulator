@@ -143,7 +143,7 @@ def test_comparar_paralelo_gera_os_cinco_protocolos(tmp_path):
         for caminho in tmp_path.glob("*_metricas.csv")
     }
     assert encontrados == set(cli.PROTOCOLOS)
-    assert len(list(tmp_path.glob("*.csv"))) == 10  # metricas + frota por protocolo
+    assert len(list(tmp_path.glob("*.csv"))) == 2 * len(cli.PROTOCOLOS)  # metricas + frota por protocolo
 
 
 # ---------------------------------------------------------------------------

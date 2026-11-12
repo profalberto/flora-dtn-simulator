@@ -31,6 +31,7 @@ Cenarios implementados (artigo FLoRA, secao 5.2):
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -434,12 +435,27 @@ CENARIOS: dict[str, CenarioHidrologico] = {
         variacao_diurna_m=0.5,
         obstaculos=[_terra_caida()],
     ),
+    "S26": CenarioHidrologico(
+        codigo="S26",
+        nome="Seca 2026",
+        descricao="Seca de 2026 com profundidades por trecho lidas de CSV (CFAOC).",
+        fonte="CSV externo (data, km, profundidade, fonte, incerteza) + CMR/FAQ da CFAOC; se ausente, o cenario nao roda.",
+    ),
 }
 
 CODIGOS_CENARIO: list[str] = list(CENARIOS)
 
 
 def obter_cenario(codigo: str) -> CenarioHidrologico:
+    if codigo == "S26":
+        raiz = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.join(raiz, "..", "dados", "s26_profundidades.csv")
+        csv_path = os.path.normpath(csv_path)
+        if not os.path.isfile(csv_path):
+            raise ValueError(
+                "Cenario S26 requer o arquivo dados/s26_profundidades.csv. "
+                "Cenario nao disponivel."
+            )
     if codigo not in CENARIOS:
         raise KeyError(f"cenario desconhecido: {codigo!r} (use um de {CODIGOS_CENARIO})")
     return CENARIOS[codigo]

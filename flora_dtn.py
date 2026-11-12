@@ -117,6 +117,8 @@ class ConfiguracaoDTN:
 
     limite_buffer: int = 120
     horizonte_ted_h: float = 6.0
+    delta_dec_h: float = 0.5
+    tau_valid_h: float = 6.0
     limiar_cobertura_tci: float = 0.90
 
     # -- parametros do protocolo FLoRA (Algoritmo 1 do artigo) --
@@ -132,6 +134,8 @@ class ConfiguracaoDTN:
     #: uma copia nova e o protocolo volta a se aproximar da inundacao; 1.2 e a
     #: histerese usual para conter a proliferacao de copias.
     fator_retencao: float = 1.20
+    #: Preserva o comportamento anterior da utilidade (prioridade cancela).
+    utilidade_legada: bool = False
 
     # -- parametros do spray-and-wait --
     copias_spray: int = 2
@@ -318,6 +322,8 @@ class ProtocoloDTN:
     nome = "base"
     descricao = ""
     navega_entre_embarcacoes = True
+    upload_gateway = True
+    usa_gateways_moveis = True
 
     def __init__(self, cfg: ConfiguracaoDTN) -> None:
         self.cfg = cfg
@@ -420,6 +426,29 @@ class ProtocoloFLoRA(ProtocoloDTN):
     def decidir(self, frota, vizinhos, t_s, ctx):
         cfg = self.cfg
         decisoes: dict[tuple[int, int], list[Bundle]] = {}
+        if cfg.utilidade_legada:
+            for i, no in enumerate(frota):
+                alvos = vizinhos.get(i, ())
+                if not alvos:
+                    continue
+                u_origem_no = [ctx.distancia_ate_roteiro_km(frota[j]) for j in alvos]
+                for bd in no.buffer.values():
+                    if bd.expirado(t_s):
+                        continue
+                    idade = math.exp(-bd.idade_h(t_s) / cfg.utilidade_sigma_t_h)
+                    u_origem = cfg.utilidade_alpha * math.exp(
+                        -ctx.distancia_ate_roteiro_km(no) / cfg.utilidade_sigma_d_km
+                    ) * idade * bd.prioridade
+                    melhor_j = -1
+                    melhor_ganho = cfg.limiar_utilidade
+                    for k, j in enumerate(alvos):
+                        ganho = cfg.utilidade_alpha * math.exp(-u_origem_no[k] / cfg.utilidade_sigma_d_km) * idade
+                        if ganho > melhor_ganho and ganho * bd.prioridade > cfg.fator_retencao * u_origem:
+                            melhor_ganho = ganho
+                            melhor_j = j
+                    if melhor_j >= 0:
+                        decisoes.setdefault((i, melhor_j), []).append(bd)
+            return decisoes
         for i, no in enumerate(frota):
             alvos = vizinhos.get(i, ())
             if not alvos:
@@ -457,6 +486,7 @@ class ProtocoloLoRaWanPuro(ProtocoloDTN):
     nome = "slp"
     descricao = "LoRaWAN puro: coleta apenas por cobertura de gateway, sem relay DTN."
     navega_entre_embarcacoes = False
+    usa_gateways_moveis = False
 
     def decidir(self, frota, vizinhos, t_s, ctx):
         return {}
@@ -472,17 +502,179 @@ class ProtocoloConvencional(ProtocoloDTN):
     nome = "sc"
     descricao = "Sistema convencional: sem coleta e sem compartilhamento entre embarcacoes."
     navega_entre_embarcacoes = False
+    upload_gateway = False
+    usa_gateways_moveis = False
 
     def decidir(self, frota, vizinhos, t_s, ctx):
         return {}
+
+
+class ProtocoloSlpMoveis(ProtocoloDTN):
+    nome = "slp_moveis"
+    descricao = "LoRaWAN puro com gateways moveis: upload por cobertura, sem relay DTN."
+    navega_entre_embarcacoes = False
+    usa_gateways_moveis = True
+
+
+class ProtocoloOficial(ProtocoloDTN):
+    nome = "oficial"
+    descricao = "Aviso oficial periodico (96 h) recebido por todas as embarcacoes; sem relay."
+    navega_entre_embarcacoes = False
+    upload_gateway = False
+    usa_gateways_moveis = False
+
+
+class ProtocoloSatelite(ProtocoloDTN):
+    nome = "satelite"
+    descricao = "Embarcacoes grandes com backhaul continuo (sem DTN), fracao configuravel."
+    navega_entre_embarcacoes = False
+    upload_gateway = True
+    usa_gateways_moveis = False
+
+
+class ProtocoloFloraPerigo(ProtocoloDTN):
+    nome = "flora_perigo"
+    descricao = "FLoRA orientada ao perigo: prioriza bundles de alerta para quem ainda nao passou pelo trecho de risco."
+    navega_entre_embarcacoes = True
+    upload_gateway = True
+    usa_gateways_moveis = True
+
+    def decidir(self, frota, vizinhos, t_s, ctx):
+        cfg = self.cfg
+        decisoes = {}
+        km_critico = 170.0
+        delta_dec = getattr(cfg, "delta_dec_h", 0.5) * 3600.0
+        horizonte_validade = getattr(cfg, "tau_valid_h", 6.0) * 3600.0
+        N = getattr(cfg, "flora_perigo_n", 2)
+        for i, no in enumerate(frota):
+            alvos = vizinhos.get(i, ())
+            if not alvos:
+                continue
+            for bd in list(no.buffer.values()):
+                if bd.expirado(t_s):
+                    continue
+                if not (bd.categoria == CAT_SEGURANCA and bd.carga.get("alerta")):
+                    continue
+                km_alvo = bd.carga.get("km_alvo", km_critico)
+                candidatos = []
+                for j in alvos:
+                    alvo = frota[j]
+                    # candidato se ainda nao passou pelo km_alvo no sentido de viagem
+                    if alvo.sentido > 0 and alvo.km_atual >= km_alvo:
+                        continue
+                    if alvo.sentido < 0 and alvo.km_atual <= km_alvo:
+                        continue
+                    if alvo.sentido > 0:
+                        eta = t_s + (km_alvo - alvo.km_atual) / max(alvo.velocidade_km_h, 1e-6) * 3600.0
+                    else:
+                        eta = t_s + (alvo.km_atual - km_alvo) / max(alvo.velocidade_km_h, 1e-6) * 3600.0
+                    if t_s + delta_dec <= eta <= t_s + horizonte_validade:
+                        g = math.exp(-(eta - t_s) / 3600.0 / max(cfg.utilidade_sigma_t_h, 1e-6))
+                        omega = bd.prioridade
+                        idade = math.exp(-bd.idade_h(t_s) / cfg.utilidade_sigma_t_h)
+                        ganho = omega * idade * g
+                        candidatos.append((ganho, j))
+                candidatos.sort(reverse=True)
+                for ganho, j in candidatos[:N]:
+                    decisoes.setdefault((i, j), []).append(bd)
+        # rotina segue flora
+        flora = ProtocoloFLoRA(cfg)
+        dec_rotina = flora.decidir(frota, vizinhos, t_s, ctx)
+        for k, v in dec_rotina.items():
+            rot = [b for b in v if not (b.categoria == CAT_SEGURANCA and b.carga.get("alerta"))]
+            if rot:
+                decisoes.setdefault(k, []).extend(rot)
+        return decisoes
+
+
+class ProtocoloSlpMoveis(ProtocoloDTN):
+    nome = "slp_moveis"
+    descricao = "LoRaWAN puro com gateways moveis: upload por cobertura, sem relay DTN."
+    navega_entre_embarcacoes = False
+    usa_gateways_moveis = True
+
+
+class ProtocoloOficial(ProtocoloDTN):
+    nome = "oficial"
+    descricao = "Aviso oficial periodico (96 h) recebido por todas as embarcacoes; sem relay."
+    navega_entre_embarcacoes = False
+    upload_gateway = False
+    usa_gateways_moveis = False
+
+
+class ProtocoloSatelite(ProtocoloDTN):
+    nome = "satelite"
+    descricao = "Embarcacoes grandes com backhaul continuo (sem DTN), fracao configuravel."
+    navega_entre_embarcacoes = False
+    upload_gateway = True
+    usa_gateways_moveis = False
+
+
+class ProtocoloFloraPerigo(ProtocoloDTN):
+    nome = "flora_perigo"
+    descricao = "FLoRA orientada ao perigo: prioriza bundles de alerta para quem ainda nao passou pelo trecho de risco."
+    navega_entre_embarcacoes = True
+    upload_gateway = True
+    usa_gateways_moveis = True
+
+    def decidir(self, frota, vizinhos, t_s, ctx):
+        cfg = self.cfg
+        decisoes = {}
+        km_critico = 170.0
+        delta_dec = getattr(cfg, "delta_dec_h", 0.5) * 3600.0
+        horizonte_validade = getattr(cfg, "tau_valid_h", 6.0) * 3600.0
+        N = getattr(cfg, "flora_perigo_n", 2)
+        for i, no in enumerate(frota):
+            alvos = vizinhos.get(i, ())
+            if not alvos:
+                continue
+            for bd in list(no.buffer.values()):
+                if bd.expirado(t_s):
+                    continue
+                if not (bd.categoria == CAT_SEGURANCA and bd.carga.get("alerta")):
+                    continue
+                km_alvo = bd.carga.get("km_alvo", km_critico)
+                candidatos = []
+                for j in alvos:
+                    alvo = frota[j]
+                    # candidato se ainda nao passou pelo km_alvo no sentido de viagem
+                    if alvo.sentido > 0 and alvo.km_atual >= km_alvo:
+                        continue
+                    if alvo.sentido < 0 and alvo.km_atual <= km_alvo:
+                        continue
+                    if alvo.sentido > 0:
+                        eta = t_s + (km_alvo - alvo.km_atual) / max(alvo.velocidade_km_h, 1e-6) * 3600.0
+                    else:
+                        eta = t_s + (alvo.km_atual - km_alvo) / max(alvo.velocidade_km_h, 1e-6) * 3600.0
+                    if t_s + delta_dec <= eta <= t_s + horizonte_validade:
+                        g = math.exp(-(eta - t_s) / 3600.0 / max(cfg.utilidade_sigma_t_h, 1e-6))
+                        omega = bd.prioridade
+                        idade = math.exp(-bd.idade_h(t_s) / cfg.utilidade_sigma_t_h)
+                        ganho = omega * idade * g
+                        candidatos.append((ganho, j))
+                candidatos.sort(reverse=True)
+                for ganho, j in candidatos[:N]:
+                    decisoes.setdefault((i, j), []).append(bd)
+        # rotina segue flora
+        flora = ProtocoloFLoRA(cfg)
+        dec_rotina = flora.decidir(frota, vizinhos, t_s, ctx)
+        for k, v in dec_rotina.items():
+            rot = [b for b in v if not (b.categoria == CAT_SEGURANCA and b.carga.get("alerta"))]
+            if rot:
+                decisoes.setdefault(k, []).extend(rot)
+        return decisoes
 
 
 PROTOCOLOS: dict[str, type[ProtocoloDTN]] = {
     ProtocoloEpidemico.nome: ProtocoloEpidemico,
     ProtocoloSprayWait.nome: ProtocoloSprayWait,
     ProtocoloFLoRA.nome: ProtocoloFLoRA,
+    ProtocoloFloraPerigo.nome: ProtocoloFloraPerigo,
     ProtocoloLoRaWanPuro.nome: ProtocoloLoRaWanPuro,
+    ProtocoloSlpMoveis.nome: ProtocoloSlpMoveis,
+    ProtocoloSatelite.nome: ProtocoloSatelite,
     ProtocoloConvencional.nome: ProtocoloConvencional,
+    ProtocoloOficial.nome: ProtocoloOficial,
 }
 NOMES_PROTOCOLO = list(PROTOCOLOS)
 
@@ -800,6 +992,9 @@ PERFIS_EMBARCACAO: dict[str, PerfilEmbarcacao] = {
     "PRINCIPAL": PerfilEmbarcacao("PRINCIPAL", "Navio/balsa de recreio", (70, 130, 180), 11, 2.5, (9.0, 15.0)),
     "LANCHA": PerfilEmbarcacao("LANCHA", "Lancha rapida", (218, 112, 214), 8, 0.8, (25.0, 40.0)),
     "RIBEIRINHO": PerfilEmbarcacao("RIBEIRINHO", "Barco ribeirinho", (140, 150, 155), 6, 0.5, (5.0, 9.0)),
+    "NAVIO_OCEANICO": PerfilEmbarcacao("NAVIO_OCEANICO", "Navio oceanico", (90, 90, 120), 14, 9.5, (14.0, 18.0)),
+    "COMBOIO": PerfilEmbarcacao("COMBOIO", "Comboio fluvial", (120, 100, 60), 12, 2.0, (10.0, 14.0)),
+    "REGIONAL": PerfilEmbarcacao("REGIONAL", "Embarcacao regional", (160, 120, 90), 7, 1.4, (14.0, 25.0)),
 }
 
 CORES_EMBARCACAO: dict[str, tuple[int, int, int]] = {
@@ -1130,6 +1325,11 @@ class Metricas:
         self.serie_idtu: list[tuple[float, float]] = []
         self.idtu_soma: float = 0.0
         self.idtu_n: int = 0
+        self.idtu_informados_tempo: int = 0
+        self.idtu_informados_tarde: int = 0
+        self.idtu_nunca: int = 0
+        self.idtu_lead_distancias: list[float] = []
+        self.idtu_antecedencias_min: list[float] = []
 
     def registrar_criacao(self, bd: Bundle, no_id: int) -> None:
         self.bundles_criados += 1
@@ -1319,6 +1519,7 @@ class MotorDTN:
         self.protocolo: ProtocoloDTN = criar_protocolo(cfg)
         self.t_s = 0.0
         self.km_trecho_critico: float | None = {"C1": None, "C2": 155.0, "C3": 170.0}.get(cfg.cenario)
+        self._ultimo_aviso_oficial: float = -96 * 3600.0
         self._seq_bundle = 0
         #: Bundle ids que ja chegaram a internet. Uma copia duplicada que
         #: chega depois conta como upload redundante (custo de overhead), nunca
@@ -1328,7 +1529,9 @@ class MotorDTN:
         self.metricas = Metricas(cfg)
         self.frota: list[Embarcacao] = self._construir_frota()
         self.supernos: list[SuperNo] = construir_supernos(cfg.alcance_gateway_fixo_km)
-        self.supernos_moveis: list[SuperNo] = construir_supernos_moveis(self.frota, cfg)
+        self.supernos_moveis: list[SuperNo] = (
+            construir_supernos_moveis(self.frota, cfg) if self.protocolo.usa_gateways_moveis else []
+        )
         self.gateways_info: dict = listar_gateways(cfg, self.frota, self.supernos, self.supernos_moveis)
         # os moveis entram na mesma lista de drenagem: nenhum grupo do
         # protocolo distingue um terminal de terra de um terminal a bordo
@@ -1552,6 +1755,7 @@ class MotorDTN:
 
         ctx = ContextoRoteamento(self.supernos, self.t_s, d_eixo=d_eixo)
         self._gerar_carga()
+        self._injetar_aviso_oficial()
         self._drenar_supernos(ctx)
         self._processar_encontros(ctx)
         self._avaliar_car()
@@ -1615,7 +1819,24 @@ class MotorDTN:
                 no.bundles_criados += 1
                 self.metricas.registrar_criacao(bd, no.id)
 
-    def _drenar_supernos(self, ctx: ContextoRoteamento) -> None:
+    def _injetar_aviso_oficial(self) -> None:
+        if self.protocolo.nome != "oficial":
+            return
+        if self.t_s - self._ultimo_aviso_oficial < 96 * 3600.0:
+            return
+        self._ultimo_aviso_oficial = self.t_s
+        self._seq_bundle += 1
+        bd = Bundle(
+            bid=f"OFICIAL_{self._seq_bundle:07d}",
+            categoria=CAT_SEGURANCA,
+            origem=-1,
+            t_criacao_s=self.t_s,
+            carga={"classe": "rota", "oficial": True},
+            copias=1,
+        )
+        for no in self.frota:
+            no.buffer[bd.bid] = bd
+            no.marcar_recebido(bd.bid)
         """
         Coleta por cobertura de gateway.
 
@@ -1639,6 +1860,9 @@ class MotorDTN:
                     no.gateways_em_contato.discard(sn.chave)
                     continue
                 alcancado = True
+                if not self.protocolo.upload_gateway:
+                    no.gateways_em_contato.add(sn.chave)
+                    continue
                 candidatos = sn.drenar(no, self.t_s)
                 if sn.movel:
                     if not candidatos:
@@ -1697,19 +1921,75 @@ class MotorDTN:
         # IDTU: informacao disponivel em tempo util
         t_rec = self.t_s
         km_crit = self.km_trecho_critico
+        delta_dec = self.cfg.delta_dec_h * 3600.0
+        tau_valid = self.cfg.tau_valid_h * 3600.0
         if km_crit is None:
-            idtu = 1.0
+            exposta = True
+            t_arr = None
         else:
             t_arr = no.t_chegada_km_critico
-            if t_arr is None:
-                idtu = 0.0
+            exposta = (t_arr is not None and t_arr > bd.t_criacao_s)
+        if exposta:
+            if km_crit is None:
+                idtu = 1.0
             else:
-                idtu = 1.0 if (t_rec + 0.5 * 3600.0 < t_arr
-                               and (t_rec - bd.t_criacao_s) <= 6.0 * 3600.0) else 0.0
-        self.metricas.idtu_soma += idtu
-        self.metricas.idtu_n += 1
+                if t_arr is None:
+                    idtu = 0.0
+                else:
+                    idtu = 1.0 if (t_rec + delta_dec < t_arr
+                                   and (t_rec - bd.t_criacao_s) <= tau_valid) else 0.0
+            self.metricas.idtu_soma += idtu
+            self.metricas.idtu_n += 1
+            if idtu >= 1.0:
+                self.metricas.idtu_informados_tempo += 1
+            elif t_arr is not None and t_rec >= t_arr - delta_dec:
+                self.metricas.idtu_informados_tarde += 1
+            else:
+                self.metricas.idtu_nunca += 1
+            if km_crit is not None and t_arr is not None:
+                lead_km = max(0.0, km_crit - no.km_atual)
+                self.metricas.idtu_lead_distancias.append(lead_km)
+                antecedencia = (t_arr - t_rec) / 60.0
+                self.metricas.idtu_antecedencias_min.append(antecedencia)
         self._entregues.add(bd.bid)
         self.metricas.registrar_entrega(bd, self.t_s)
+
+    def _drenar_supernos(self, ctx: ContextoRoteamento) -> None:
+        com_cobertura = 0
+        for no in self.frota:
+            self.metricas.nos_expirados += no.expirar(self.t_s)
+            d_eixo = ctx.d_eixo_km(no)
+            alcancado = False
+            for sn in self.supernos:
+                if not sn.em_alcance(no, d_eixo):
+                    no.gateways_em_contato.discard(sn.chave)
+                    continue
+                alcancado = True
+                if not self.protocolo.upload_gateway:
+                    no.gateways_em_contato.add(sn.chave)
+                    continue
+                candidatos = sn.drenar(no, self.t_s)
+                if sn.movel:
+                    if not candidatos:
+                        sn.aguardando_cota = 0
+                        continue
+                    sn.aguardando_cota = max(0, len(candidatos) - int(sn._cota))
+                    if sn._cota < 1.0:
+                        continue
+                    candidatos.sort(key=lambda b: b.bid in self._entregues)
+                    quota = min(len(candidatos), int(sn._cota))
+                    candidatos = candidatos[:quota]
+                for bd in candidatos:
+                    self._uplicar_ao_gateway(no, bd, sn)
+            com_cobertura += 1 if alcancado else 0
+        if self.frota:
+            pct = 100.0 * com_cobertura / len(self.frota)
+            self.metricas.cobertura_instantanea_percentual = pct
+            self.metricas._soma_cobertura += pct
+            self.metricas._amostras_cobertura += 1
+            self.metricas.cobertura_instantanea_media = (
+                self.metricas._soma_cobertura / self.metricas._amostras_cobertura
+            )
 
     def _processar_encontros(self, ctx: ContextoRoteamento) -> None:
         """
@@ -1895,6 +2175,13 @@ class MotorDTN:
             ),
             "idtu_media": round(m.idtu_soma / m.idtu_n, 4) if m.idtu_n else None,
             "idtu_n": m.idtu_n,
+            "idtu_informados_tempo": m.idtu_informados_tempo,
+            "idtu_informados_tarde": m.idtu_informados_tarde,
+            "idtu_nunca": m.idtu_nunca,
+            "idtu_lead_distancia_mediana_km": (round(sorted(m.idtu_lead_distancias)[len(m.idtu_lead_distancias)//2], 3)
+                                             if m.idtu_lead_distancias else None),
+            "idtu_antecedencia_mediana_min": (round(sorted(m.idtu_antecedencias_min)[len(m.idtu_antecedencias_min)//2], 2)
+                                             if m.idtu_antecedencias_min else None),
         })
         return dados
 
