@@ -1385,6 +1385,8 @@ class Metricas:
         self.idtu_nunca: int = 0
         self.idtu_lead_distancias: list[float] = []
         self.idtu_antecedencias_min: list[float] = []
+        self.security_bundles: dict[str, float] = {}
+        self.recepcoes_seguranca: dict[str, dict[int, float]] = {}
 
     def registrar_criacao(self, bd: Bundle, no_id: int) -> None:
         self.bundles_criados += 1
@@ -1394,6 +1396,7 @@ class Metricas:
             self.cobertura_por_bid[bd.bid] = {no_id}
             self.tci_por_bid[bd.bid] = None
             self.tci_criacao_por_bid[bd.bid] = bd.t_criacao_s
+            self.security_bundles[bd.bid] = bd.t_criacao_s
 
     def registrar_cobertura(self, bid: str, no_id: int, t_s: float) -> None:
         """
@@ -1583,6 +1586,10 @@ class MotorDTN:
         self._t_podagem = 0.0
         self.metricas = Metricas(cfg)
         self.frota: list[Embarcacao] = self._construir_frota()
+        if self.km_trecho_critico is not None:
+            for no in self.frota:
+                if no.km_atual >= self.km_trecho_critico:
+                    no.t_chegada_km_critico = 0.0
         self.supernos: list[SuperNo] = construir_supernos(cfg.alcance_gateway_fixo_km)
         self.supernos_moveis: list[SuperNo] = (
             construir_supernos_moveis(self.frota, cfg) if self.protocolo.usa_gateways_moveis else []
@@ -1687,6 +1694,7 @@ class MotorDTN:
             if no.inserir(bd, self.t_s, self.cfg.limite_buffer):
                 no.bundles_criados += 1
                 self.metricas.registrar_criacao(bd, no.id)
+                self.metricas.recepcoes_seguranca.setdefault(bd.bid, {})[no.id] = self.t_s
         for _ in range(n_rot):
             bd = self._novo_bundle(no, CAT_ROTINA)
             self.metricas.bundles_gerados += 1
@@ -1750,6 +1758,7 @@ class MotorDTN:
                 if no.inserir(bd, 0.0, self.cfg.limite_buffer):
                     no.bundles_criados += 1
                     self.metricas.registrar_criacao(bd, no.id)
+                    self.metricas.recepcoes_seguranca.setdefault(bd.bid, {})[no.id] = 0.0
             for _ in range(n_rot):
                 bd = self._novo_bundle(no, CAT_ROTINA)
                 self.metricas.bundles_gerados += 1
@@ -1822,6 +1831,47 @@ class MotorDTN:
             if self.rng.random() < 0.12:
                 no.registrar_historico()
 
+    def _finalizar_idtu(self) -> None:
+        m = self.metricas
+        km_crit = self.km_trecho_critico
+        delta_dec = self.cfg.delta_dec_h * 3600.0
+        tau_valid = self.cfg.tau_valid_h * 3600.0
+        if km_crit is None:
+            expostos = list(self.frota)
+        else:
+            expostos = [no for no in self.frota if no.t_chegada_km_critico is not None]
+        bids_seg = list(m.security_bundles.keys())
+        if not bids_seg or not expostos:
+            return
+        informados = 0
+        total = 0
+        tarde = 0
+        nunca = 0
+        for no in expostos:
+            t_arr = no.t_chegada_km_critico
+            for bid, t_criacao in m.security_bundles.items():
+                if km_crit is not None and t_arr is not None and not (t_arr > t_criacao):
+                    continue  # vessel already passed critical km before bundle existed
+                total += 1
+                if km_crit is None:
+                    informados += 1
+                    continue
+                t_rec = m.recepcoes_seguranca.get(bid, {}).get(no.id)
+                if t_rec is not None and t_rec + delta_dec < t_arr and (t_rec - t_criacao) <= tau_valid:
+                    informados += 1
+                    lead_km = max(0.0, km_crit - no.km_atual)
+                    m.idtu_lead_distancias.append(lead_km)
+                    m.idtu_antecedencias_min.append((t_arr - t_rec) / 60.0)
+                elif t_rec is not None:
+                    tarde += 1
+                else:
+                    nunca += 1
+        m.idtu_soma = float(informados)
+        m.idtu_n = total
+        m.idtu_informados_tempo = informados
+        m.idtu_informados_tarde = tarde
+        m.idtu_nunca = nunca
+
     def _atualizar_hidrologia(self, d_eixo: dict[int, np.ndarray] | None = None) -> None:
         """Resolve profundidade e margem sob quilha da frota inteira."""
         t_h = self.t_s / 3600.0
@@ -1873,6 +1923,8 @@ class MotorDTN:
             if no.inserir(bd, self.t_s, cfg.limite_buffer):
                 no.bundles_criados += 1
                 self.metricas.registrar_criacao(bd, no.id)
+                if categoria == CAT_SEGURANCA:
+                    self.metricas.recepcoes_seguranca.setdefault(bd.bid, {})[no.id] = self.t_s
 
     def _injetar_aviso_oficial(self) -> None:
         if self.protocolo.nome != "oficial":
@@ -1957,39 +2009,6 @@ class MotorDTN:
         if bd.bid in self._entregues:
             self.metricas.uploads_redundantes += 1
             return
-        # IDTU: informacao disponivel em tempo util
-        t_rec = self.t_s
-        km_crit = self.km_trecho_critico
-        delta_dec = self.cfg.delta_dec_h * 3600.0
-        tau_valid = self.cfg.tau_valid_h * 3600.0
-        if km_crit is None:
-            exposta = True
-            t_arr = None
-        else:
-            t_arr = no.t_chegada_km_critico
-            exposta = (t_arr is not None and t_arr > bd.t_criacao_s)
-        if exposta:
-            if km_crit is None:
-                idtu = 1.0
-            else:
-                if t_arr is None:
-                    idtu = 0.0
-                else:
-                    idtu = 1.0 if (t_rec + delta_dec < t_arr
-                                   and (t_rec - bd.t_criacao_s) <= tau_valid) else 0.0
-            self.metricas.idtu_soma += idtu
-            self.metricas.idtu_n += 1
-            if idtu >= 1.0:
-                self.metricas.idtu_informados_tempo += 1
-            elif t_arr is not None and t_rec >= t_arr - delta_dec:
-                self.metricas.idtu_informados_tarde += 1
-            else:
-                self.metricas.idtu_nunca += 1
-            if km_crit is not None and t_arr is not None:
-                lead_km = max(0.0, km_crit - no.km_atual)
-                self.metricas.idtu_lead_distancias.append(lead_km)
-                antecedencia = (t_arr - t_rec) / 60.0
-                self.metricas.idtu_antecedencias_min.append(antecedencia)
         self._entregues.add(bd.bid)
         self.metricas.registrar_entrega(bd, self.t_s)
 
@@ -2103,6 +2122,8 @@ class MotorDTN:
             destino.saltos_totais += 1
             origem.transmitidos += 1
             self.metricas.registrar_cobertura(bd.bid, destino.id, self.t_s)
+            if bd.categoria == CAT_SEGURANCA:
+                self.metricas.recepcoes_seguranca.setdefault(bd.bid, {})[destino.id] = self.t_s
         else:
             if decrementou_copia:
                 bd.copias += 1
@@ -2154,6 +2175,7 @@ class MotorDTN:
             self.passo()
             if progresso is not None:
                 progresso(k / passos)
+        self._finalizar_idtu()
         return self
 
     def registrar_historico(self) -> None:  # pragma: no cover - compatibilidade
