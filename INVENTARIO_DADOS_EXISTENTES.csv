@@ -1,0 +1,10 @@
+arquivo,tipo,cenario,protocolo,semente,horizonte_h,conteudo
+resultados/artigo/tabela5_gateways.csv,agregado,C3,flora (movel/fixo),20260826-20260855,168,gateways moveis vs fixos
+resultados/artigo/tabela6_protocolos.csv,agregado,C1/C2/C3,5 protocolos,20260826-20260855,168,comparacao de protocolos
+resultados/artigo/tabela7_estatistica.csv,agregado,C1/C2/C3,5 protocolos,20260826-20260855,168,Friedman+Holm
+resultados/artigo/tabela8_idtu.csv,agregado,C1/C2/C3,5 protocolos,20260826-20260855,168,IDTU por cenario/protocolo
+resultados/artigo/tabela9_densidade.csv,agregado,C2,5 protocolos,20260826-20260855,168,sensibilidade a densidade
+resultados/artigo/tabela6/*_metricas.csv,bruto,3 cenarios,5 protocolos,20260826-20260855,168,metricas por execucao
+resultados/artigo/tabela6/*_simulacao.json,bruto,3 cenarios,5 protocolos,20260826-20260855,168,JSON completo por execucao
+exemplos/*_metricas.csv,bruto,C2,5 protocolos,20260826,2,metricas de demonstracao
+exemplos/*_simulacao.json,bruto,C2,5 protocolos,20260826,2,JSON de demonstracao
