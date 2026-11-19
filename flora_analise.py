@@ -473,7 +473,32 @@ def gerar_diferencas(registros: Sequence[Registro], metricas: Sequence[str],
     return linhas
 
 
-def holm(pvalores: Sequence[float | None]) -> list[float | None]:
+def tost_equivalencia(a: Sequence[float], b: Sequence[float],
+                      delta: float = 5.0,
+                      confianca: float = 0.95) -> dict:
+    """
+    Teste de equivalencia (TOST) para pares pareados.
+
+    Retorna dict com media_dif, ic_inf, ic_sup, equivalente (bool) e delta.
+    Equivalente se o IC da diferenca esta dentro de [-delta, +delta].
+    """
+    diffs = [x - y for x, y in zip(a, b)]
+    media = statistics.fmean(diffs) if diffs else 0.0
+    if len(diffs) < 2:
+        return {"media_dif": media, "ic_inf": media, "ic_sup": media,
+                "delta": delta, "equivalente": abs(media) <= delta}
+    desvio = statistics.stdev(diffs)
+    try:
+        from scipy import stats as st
+        tc = st.t.ppf((1 + confianca) / 2.0, len(diffs) - 1)
+    except Exception:
+        tc = 1.96
+    margem = tc * desvio / (len(diffs) ** 0.5)
+    inf, sup = media - margem, media + margem
+    equivalente = (inf >= -delta) and (sup <= delta)
+    return {"media_dif": round(media, 4), "ic_inf": round(inf, 4),
+            "ic_sup": round(sup, 4), "delta": delta,
+            "equivalente": equivalente}
     """
     Correcao de Holm-Bonferroni, preservando a ordem original.
 
