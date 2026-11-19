@@ -1,4 +1,4 @@
-# Relatório de Correção — Prova Prática de Programação Web (UFAM/ICET)
+﻿# Relatório de Correção — Prova Prática de Programação Web (UFAM/ICET)
 
 **Disciplina:** Programação Web — Engenharia de Software
 **Professor:** Antônio Alberto
@@ -47,6 +47,8 @@ Módulo seguro de **Cadastro e Login de Usuários** (Full-Stack):
 | Sabrina_Martins | 1,0 | 1,0 | 0,5 | 0,0 | 0,5 | **3,0** | Parcial | Média |
 | Sergio_Fernandes_22450190 | 1,5 | 1,5 | 1,0 | 2,0 | 0,5 | **6,5** | Parcial | Alta |
 | Thiago Silva dos Santos | 1,5 | 1,0 | 1,5 | 0,0 | 0,0 | **4,0** | Parcial | Alta |
+| Iago_Vinicius_22450579 | 0,5 | 1,5 | 0,0 | 0,0 | 0,5 | **2,0** | Parcial | Alta |
+| Peterson_Silva_22450268 | 1,0 | 1,5 | 0,0 | 0,0 | 0,0 | **2,5** | Não concluído | Baixa |
 
 ## 4. Detalhamento por aluno
 
@@ -154,3 +156,5 @@ Módulo seguro de **Cadastro e Login de Usuários** (Full-Stack):
 - A maioria das submissões de maior volume (microservices, avatar, CRUD, Bootstrap/FontAwesome) não corresponde ao escopo da prova e apresenta forte indício de geração por IA ou cópia de template compartilhado.
 - Recomenda-se entrevista individual/oral para as submissões com alta probabilidade de IA e para as notas elevadas com divergência de escopo (Aila, Sérgio, Thiago).
 - O gabarito de referência está em `prova_pratica/` (index.html, style.css, script.js, server.js, package.json).
+
+
