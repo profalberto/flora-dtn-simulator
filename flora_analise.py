@@ -424,6 +424,29 @@ def comparar_protocolos(
 # ---------------------------------------------------------------------------
 # 4. HOLM
 # ---------------------------------------------------------------------------
+def holm(pvalores: Sequence[float | None]) -> list[float | None]:
+    """
+    Correcao de Holm-Bonferroni, preservando a ordem original.
+
+    Os ``None`` sao ignorados no calculo e devolvidos como ``None``. A familia
+    de testes e, por decisao do modo ``analisar``, o conjunto de metricas de
+    uma mesma chamada.
+    """
+    indices = [i for i, p in enumerate(pvalores) if p is not None]
+    if not indices:
+        return [None] * len(pvalores)
+    ordenados = sorted(indices, key=lambda i: pvalores[i])  # type: ignore[arg-type]
+    total = len(ordenados)
+    ajustados: list[float | None] = [None] * len(pvalores)
+    anterior = 0.0
+    for posicao, indice in enumerate(ordenados):
+        bruto = float(pvalores[indice])  # type: ignore[arg-type]
+        ajustado = min(1.0, (total - posicao) * bruto)
+        anterior = max(anterior, ajustado)
+        ajustados[indice] = anterior
+    return ajustados
+
+
 def ic95_diferenca_pareada(a: Sequence[float], b: Sequence[float],
                            confianca: float = 0.95) -> tuple[float, float, float]:
     """Media e IC95% da diferenca pareada a - b (Student t)."""
@@ -442,7 +465,7 @@ def ic95_diferenca_pareada(a: Sequence[float], b: Sequence[float],
 
 
 def gerar_diferencas(registros: Sequence[Registro], metricas: Sequence[str],
-                     confianca: float = 0.95) -> list[dict]:
+                     confianca: float = 0.95, delta: float = 5.0) -> list[dict]:
     """IC95% da diferenca pareada entre protocolos, por metrica."""
     linhas = []
     protocolos = sorted({r.protocolo for r in registros})
@@ -461,6 +484,7 @@ def gerar_diferencas(registros: Sequence[Registro], metricas: Sequence[str],
                 va = [por_proto[a][k] for k in sorted(chaves)]
                 vb = [por_proto[b][k] for k in sorted(chaves)]
                 media, inf, sup = ic95_diferenca_pareada(va, vb, confianca)
+                tost = tost_equivalencia(va, vb, delta=delta, confianca=confianca)
                 linhas.append({
                     "metrica": metrica,
                     "protocolo_a": a,
@@ -468,6 +492,8 @@ def gerar_diferencas(registros: Sequence[Registro], metricas: Sequence[str],
                     "media_dif": round(media, 4),
                     "ic95_inf": round(inf, 4),
                     "ic95_sup": round(sup, 4),
+                    "p_valor_tost": tost["p_valor"],
+                    "equivalente": tost["equivalente"],
                     "n_blocos": len(chaves),
                 })
     return linhas
@@ -491,13 +517,21 @@ def tost_equivalencia(a: Sequence[float], b: Sequence[float],
     try:
         from scipy import stats as st
         tc = st.t.ppf((1 + confianca) / 2.0, len(diffs) - 1)
+        se = desvio / (len(diffs) ** 0.5)
+        t1 = (media + delta) / se
+        t2 = (media - delta) / se
+        p1 = 1.0 - float(st.t.cdf(t1, len(diffs) - 1))
+        p2 = float(st.t.cdf(t2, len(diffs) - 1))
+        p_tost = max(p1, p2)
     except Exception:
         tc = 1.96
+        p_tost = None
     margem = tc * desvio / (len(diffs) ** 0.5)
     inf, sup = media - margem, media + margem
     equivalente = (inf >= -delta) and (sup <= delta)
     return {"media_dif": round(media, 4), "ic_inf": round(inf, 4),
             "ic_sup": round(sup, 4), "delta": delta,
+            "p_valor": (round(p_tost, 6) if p_tost is not None else None),
             "equivalente": equivalente}
     """
     Correcao de Holm-Bonferroni, preservando a ordem original.
